@@ -1,5 +1,15 @@
 import Delaunator from 'delaunator'
 import { getColor } from './utils'
+import {
+  Box,
+  Camera,
+  OGLRenderingContext,
+  Program,
+  Renderer,
+  Transform,
+  Mesh,
+  Geometry
+} from 'ogl'
 
 type Point = {
   x: number
@@ -12,39 +22,67 @@ type Params = {
 }
 
 class Demo {
-  private canvas: HTMLCanvasElement
-  private width: number
-  private height: number
-  private dpr: number = 1
-  private ctx: CanvasRenderingContext2D | null
+  private dom: HTMLDivElement
+  private width: number = 0
+  private height: number = 0
+  private renderer: Renderer
+  private gl: OGLRenderingContext
+  private camera: Camera
+  private scene: Transform
+  private dpr: number = 2
   private params: Params
   private points: Point[] = []
   private delaunay!: Delaunator<Float64Array<ArrayBufferLike>>
   private centers: Point[] = []
 
-  constructor(dom: HTMLCanvasElement, params: Params) {
-    this.canvas = dom
-    this.dpr = window.devicePixelRatio
-    this.width = this.canvas.width
-    this.height = this.canvas.height
-    this.ctx = this.canvas.getContext('2d')
-    this.params = params
+  constructor(dom: HTMLDivElement, params: Params) {
+    this.dom = dom
+    this.renderer = new Renderer({
+      antialias: true
+    })
+
+    this.gl = this.renderer.gl
+
+    this.camera = new Camera(this.gl, {
+      near: 0.1,
+      far: 1000
+    })
+    this.camera.position.z = 500
+    this.camera.lookAt([0, 0, 0])
 
     this.resize()
+
+    this.gl.clearColor(1, 1, 1, 1)
+    this.dom.appendChild(this.gl.canvas)
+
+    this.scene = new Transform()
+
+    this.params = params
+
     this.generatePoints()
     this.generateDelaunay()
     this.generateCenters()
   }
 
-  resize() {
-    const rect = this.canvas.getBoundingClientRect()
-    this.canvas.width = rect.width * this.dpr
-    this.canvas.height = rect.height * this.dpr
-    this.canvas.style.width = rect.width + 'px'
-    this.canvas.style.height = rect.height + 'px'
+  handleResize = () => {
+    this.width = this.dom.clientWidth
+    this.height = this.dom.clientHeight
+    this.dpr = Math.min(window.devicePixelRatio, 2)
 
-    // 缩放上下文以匹配CSS像素
-    this.ctx?.scale(this.dpr, this.dpr)
+    this.renderer.dpr = this.dpr
+    this.renderer.setSize(this.width, this.height)
+
+    this.camera.orthographic({
+      left: -20,
+      right: this.width,
+      top: this.height,
+      bottom: -20
+    })
+  }
+
+  resize() {
+    window.addEventListener('resize', this.handleResize, false)
+    this.handleResize()
   }
 
   generatePoints() {
@@ -122,77 +160,86 @@ class Demo {
     return result
   }
 
-  // triangleCenter(t: number) {
-  //   const vertices = this.pointsOfTriangle(t).map(p => this.points[p])
-
-  // }
-
   renderPoints() {
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
+    const gl = this.gl
+    const geometry = new Geometry(gl, {
+      position: {
+        size: 3,
+        data: new Float32Array(
+          this.points.reduce(
+            (acc, point) => [...acc, point.x, point.y, 0],
+            [] as number[]
+          )
+        )
+      }
+    })
+    const program = new Program(gl, {
+      vertex: `
+        attribute vec3 position;
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
 
-    ctx.fillStyle = 'rgb(36, 225, 118)'
+        void main() {
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = 10.0;
+        }
+      `,
+      fragment: `
+        precision highp float;
+        
+        void main() {
+          gl_FragColor = vec4(0.141, 0.882, 0.463, 1.0);
+        }
+      `
+    })
+    const points = new Mesh(gl, { mode: gl.POINTS, geometry, program })
+    points.setParent(this.scene)
 
-    for (let { x, y } of this.points) {
-      ctx.beginPath()
-      ctx.arc(x, y, 2, 0, 2 * Math.PI)
-      ctx.fill()
-    }
-
-    ctx.restore()
+    this.renderer.render({ scene: this.scene, camera: this.camera })
   }
 
   renderEdges() {
-    console.log('triangles', this.delaunay.triangles, this.delaunay.halfedges)
-
-    //  0------1
-    //   \    / \
-    //    \  /   \
-    //     2------3
-    // points: [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] 共四个点
-    // delaunay.triangles : 存储三角形顶点索引，通过索引可以在points中找到对应的点，
-    // 每三个元素表示一个三角形的3个顶点。
-    // 上图值为：[
-    //   0, 1, 2 // triangle0
-    //   2, 1, 3 // triangle1
-    // ]
-    // delaunay.halfedges : 半边索引，与 triangles 等长，每个元素表示 triangles 中对应半边
-    //                      的 “对边” 所在的索引，没有则为 -1。
-    // 上图值为：[
-    //    -1,  // triangle0 的边0: 0->1, 无对边
-    //    3,   // triangle0 的边1: 1->2，对边是索引3，triagles[3] = 2, 即 2->1
-    //    -1,  // triangle0 的边2: 2->0, 无
-    //    1,   // triangle1 的边0: 2->1, 对边是索引1，triangles[1] = 1，即 1->2
-    //    -1,  // triangle1 的边1: 1->3, 无
-    //    -1   // triangle1 的边2: 3->2, 无
-    // ]
-    // 即 halfedges[1] = 3 -> triangle0 的边1对应 triangle1 的边0
-    //    halfedges[3] = 1 -> triangle1 的边0对应 triangle0 的边1
-    // halfedges[i] 是第i条边的对边的索引，它本质上是triangles中的索引，也是halfedges中索引，
-    // 因为两者长度一样，结构一一对应
-
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
-    ctx.lineWidth = 0.2
-    ctx.strokeStyle = `rgba(66, 63, 63, 0.6)`
+    const gl = this.gl
+    const positions: number[] = []
 
     for (let e = 0; e < this.delaunay.triangles.length; e++) {
-      // 半边是两个边，此条件能确保每个边只被绘制一次
       if (e > this.delaunay.halfedges[e]) {
-        // p 是边的起点
         const p = this.points[this.delaunay.triangles[e]]
-        // q 是边的终点
         const q = this.points[this.delaunay.triangles[this.nextHalfedge(e)]]
-
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-        ctx.lineTo(q.x, q.y)
-        ctx.stroke()
+        positions.push(p.x, p.y, 0, q.x, q.y, 0)
       }
     }
-    ctx.restore()
+    if (positions.length === 0) return
+    const geometry = new Geometry(gl, {
+      position: {
+        size: 3,
+        data: new Float32Array(positions)
+      }
+    })
+    const program = new Program(gl, {
+      vertex: `
+        attribute vec3 position;
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+
+        void main() {
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragment: `
+        void main() {
+          gl_FragColor = vec4(0.26, 0.25, 0.25, 0.6);
+        }
+      `
+    })
+
+    const mesh = new Mesh(this.gl, {
+      geometry,
+      program,
+      mode: this.gl.LINES
+    })
+    mesh.setParent(this.scene)
+    this.renderer.render({ scene: this.scene, camera: this.camera })
   }
 
   renderTriangles() {
@@ -276,16 +323,53 @@ class Demo {
     }
     ctx.restore()
   }
+
+  render() {
+    const gl = this.gl
+
+    const scene = new Transform()
+    const geometry = new Box(gl)
+    const program = new Program(gl, {
+      vertex: `
+        attribute vec3 position;
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+
+        void main() {
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragment: `
+        void main() {
+          gl_FragColor = vec4(1.0);
+        }
+      `
+    })
+    const mesh = new Mesh(gl, { geometry, program })
+    mesh.setParent(scene)
+
+    this.renderer.render({ scene, camera: this.camera })
+
+    // requestAnimationFrame(update.bind(this))
+    // function update(t) {
+    //   requestAnimationFrame(update)
+    //   mesh.rotation.y -= 0.04
+    //   self.renderer.render({ scene, camera: self.camera })
+    // }
+  }
 }
 
-const demo = new Demo(document.getElementById('map') as HTMLCanvasElement, {
+const demo = new Demo(document.getElementById('demo') as HTMLDivElement, {
   gridSize: 40,
   jitter: 10
 })
 
 demo.renderPoints()
 demo.renderEdges()
-// demo.renderTriangles()
-demo.renderCenters()
-demo.renderCellEdges()
-demo.renderCells()
+
+// demo.renderPoints()
+// demo.renderEdges()
+// // demo.renderTriangles()
+// demo.renderCenters()
+// demo.renderCellEdges()
+// demo.renderCells()
