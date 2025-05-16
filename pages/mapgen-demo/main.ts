@@ -11,6 +11,7 @@ type Point = {
 type Params = {
   gridSize: number
   jitter: number
+  margin: number
 }
 
 class Demo {
@@ -51,8 +52,11 @@ class Demo {
   }
 
   generatePoints() {
-    for (let x = 0; x <= this.width; x = x + this.params.gridSize) {
-      for (let y = 0; y <= this.height; y = y + this.params.gridSize) {
+    const margin = this.params.margin
+    const gridSize = this.params.gridSize
+
+    for (let x = margin; x <= this.width - margin; x = x + gridSize) {
+      for (let y = margin; y <= this.height - margin; y = y + gridSize) {
         this.points.push({
           x: x + this.params.jitter * (Math.random() - Math.random()),
           y: y + this.params.jitter * (Math.random() - Math.random())
@@ -127,14 +131,15 @@ class Demo {
 
   // 通过噪声分配高度
   assignElevation() {
-    const prng = alea('seed')
+    const prng = alea('9199')
     const noise = createNoise2D(prng)
-    for (let i = 0; i < this.points.length; i++) {
-      let nx = this.points[i].x
-      let ny = this.points[i].y
 
-      // this.elevations[i] = noise(nx, ny)
-      this.elevations[i] = noise(nx * 100, ny * 100)
+    for (let i = 0; i < this.points.length; i++) {
+      let nx = this.points[i].x / this.width
+      let ny = this.points[i].y / this.height
+
+      this.elevations[i] = noise(nx, ny)
+      // this.elevations[i] = (1 + noise(nx * 0.5, ny * 0.5)) / 2
       let d = 2 * Math.max(Math.abs(nx), Math.abs(ny)) // 0 ~ 1
 
       // console.log('noise', nx, ny, noise(nx, ny), d)
@@ -159,140 +164,6 @@ class Demo {
     ctx.restore()
   }
 
-  renderEdges() {
-    console.log('triangles', this.delaunay.triangles, this.delaunay.halfedges)
-
-    //  0------1
-    //   \    / \
-    //    \  /   \
-    //     2------3
-    // points: [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] 共四个点
-    // delaunay.triangles : 存储三角形顶点索引，通过索引可以在points中找到对应的点，
-    // 每三个元素表示一个三角形的3个顶点。
-    // 上图值为：[
-    //   0, 1, 2 // triangle0
-    //   2, 1, 3 // triangle1
-    // ]
-    // delaunay.halfedges : 半边索引，与 triangles 等长，每个元素表示 triangles 中对应半边
-    //                      的 “对边” 所在的索引，没有则为 -1。
-    // 上图值为：[
-    //    -1,  // triangle0 的边0: 0->1, 无对边
-    //    3,   // triangle0 的边1: 1->2，对边是索引3，triagles[3] = 2, 即 2->1
-    //    -1,  // triangle0 的边2: 2->0, 无
-    //    1,   // triangle1 的边0: 2->1, 对边是索引1，triangles[1] = 1，即 1->2
-    //    -1,  // triangle1 的边1: 1->3, 无
-    //    -1   // triangle1 的边2: 3->2, 无
-    // ]
-    // 即 halfedges[1] = 3 -> triangle0 的边1对应 triangle1 的边0
-    //    halfedges[3] = 1 -> triangle1 的边0对应 triangle0 的边1
-    // halfedges[i] 是第i条边的对边的索引，它本质上是triangles中的索引，也是halfedges中索引，
-    // 因为两者长度一样，结构一一对应
-
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
-    ctx.lineWidth = 0.2
-    ctx.strokeStyle = `rgba(66, 63, 63, 0.6)`
-
-    for (let e = 0; e < this.delaunay.triangles.length; e++) {
-      // 半边是两个边，此条件能确保每个边只被绘制一次
-      if (e > this.delaunay.halfedges[e]) {
-        // p 是边的起点
-        const p = this.points[this.delaunay.triangles[e]]
-        // q 是边的终点
-        const q = this.points[this.delaunay.triangles[this.nextHalfedge(e)]]
-
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-        ctx.lineTo(q.x, q.y)
-        ctx.stroke()
-      }
-    }
-    ctx.restore()
-  }
-
-  renderTriangles() {
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
-
-    for (let t = 0; t < this.delaunay.triangles.length / 3; t++) {
-      const ps = this.pointsOfTriangle(t)
-      ctx.fillStyle = getColor(t / this.delaunay.triangles.length)
-
-      ctx.beginPath()
-      ctx.moveTo(this.points[ps[0]].x, this.points[ps[0]].y)
-      ctx.lineTo(this.points[ps[1]].x, this.points[ps[1]].y)
-      ctx.lineTo(this.points[ps[2]].x, this.points[ps[2]].y)
-      ctx.closePath()
-      ctx.fill()
-    }
-
-    ctx.restore()
-  }
-
-  renderCenters() {
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
-
-    ctx.fillStyle = 'hsl(312, 85.20%, 47.80%)'
-
-    for (let { x, y } of this.centers) {
-      ctx.beginPath()
-      ctx.arc(x, y, 1.5, 0, 2 * Math.PI)
-      ctx.fill()
-    }
-
-    ctx.restore()
-  }
-
-  renderCellEdges() {
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
-    ctx.lineWidth = 0.3
-    ctx.strokeStyle = `rgba(24, 11, 146, 0.7)`
-
-    for (let e = 0; e < this.delaunay.halfedges.length; e++) {
-      if (e < this.delaunay.halfedges[e]) {
-        const p = this.centers[this.triangleOfEdge(e)]
-        const q = this.centers[this.triangleOfEdge(this.delaunay.halfedges[e])]
-        ctx.beginPath()
-        ctx.moveTo(p.x, p.y)
-        ctx.lineTo(q.x, q.y)
-        ctx.stroke()
-      }
-    }
-    ctx.restore()
-  }
-
-  renderCells() {
-    if (!this.ctx) return
-    const ctx = this.ctx
-    ctx.save()
-
-    let seen = new Set()
-
-    for (let e = 0; e < this.delaunay.halfedges.length; e++) {
-      const r = this.delaunay.triangles[this.nextHalfedge(e)]
-      if (!seen.has(r)) {
-        seen.add(r)
-        const vertices = this.edgesAroundPoint(e).map(
-          (e) => this.centers[this.triangleOfEdge(e)]
-        )
-        ctx.fillStyle = getColor(e / this.delaunay.halfedges.length)
-        ctx.beginPath()
-        ctx.moveTo(vertices[0].x, vertices[0].y)
-        for (let i = 1; i < vertices.length; i++) {
-          ctx.lineTo(vertices[i].x, vertices[i].y)
-        }
-        ctx.fill()
-      }
-    }
-    ctx.restore()
-  }
-
   renderCellsByElevation() {
     this.assignElevation()
 
@@ -303,7 +174,13 @@ class Demo {
 
     console.log(this.elevations)
 
-    for (let e = 0; e < this.delaunay.halfedges.length; e++) {
+    function getElevationColor(elevation: number): string {
+      const h = 120 - elevation * 120 // 绿到红（120 到 0）
+      const l = 30 + elevation * 50 // 增加亮度
+      return `hsl(${h}, 60%, ${l}%)`
+    }
+
+    for (let e = 0; e < this.delaunay.triangles.length; e++) {
       const r = this.delaunay.triangles[this.nextHalfedge(e)]
       if (!seen.has(r)) {
         seen.add(r)
@@ -312,6 +189,7 @@ class Demo {
         )
 
         ctx.fillStyle =
+          // getElevationColor(this.elevations[r])
           this.elevations[r] < 0.5 ? 'hsl(240, 30%, 50%)' : 'hsl(90, 20%, 50%)'
         ctx.beginPath()
         ctx.moveTo(vertices[0].x, vertices[0].y)
@@ -327,7 +205,8 @@ class Demo {
 
 const demo = new Demo(document.getElementById('map') as HTMLCanvasElement, {
   gridSize: 20,
-  jitter: 10
+  jitter: 10,
+  margin: 40
 })
 
 // demo.renderPoints()
