@@ -1,7 +1,6 @@
 import Delaunator from 'delaunator'
-import { getColor } from './utils'
-import { createNoise2D } from 'simplex-noise'
-import alea from 'alea'
+import { fbm, getColor, NoiseOptions } from './utils'
+import { Pane } from 'tweakpane'
 
 type Point = {
   x: number
@@ -12,6 +11,7 @@ type Params = {
   gridSize: number
   jitter: number
   margin: number
+  noiseOptions: NoiseOptions
 }
 
 class Demo {
@@ -131,20 +131,17 @@ class Demo {
 
   // 通过噪声分配高度
   assignElevation() {
-    const prng = alea('9199')
-    const noise = createNoise2D(prng)
-
     for (let i = 0; i < this.points.length; i++) {
       let nx = this.points[i].x / this.width
       let ny = this.points[i].y / this.height
 
-      this.elevations[i] = noise(nx, ny)
+      this.elevations[i] = fbm(nx, ny, this.params.noiseOptions)
       // this.elevations[i] = (1 + noise(nx * 0.5, ny * 0.5)) / 2
       let d = 2 * Math.max(Math.abs(nx), Math.abs(ny)) // 0 ~ 1
 
       // console.log('noise', nx, ny, noise(nx, ny), d)
 
-      this.elevations[i] = (1 + this.elevations[i]) / 2
+      // this.elevations[i] = (1 + this.elevations[i]) / 2
     }
   }
 
@@ -172,14 +169,6 @@ class Demo {
     ctx.save()
     let seen = new Set()
 
-    console.log(this.elevations)
-
-    function getElevationColor(elevation: number): string {
-      const h = 120 - elevation * 120 // 绿到红（120 到 0）
-      const l = 30 + elevation * 50 // 增加亮度
-      return `hsl(${h}, 60%, ${l}%)`
-    }
-
     for (let e = 0; e < this.delaunay.triangles.length; e++) {
       const r = this.delaunay.triangles[this.nextHalfedge(e)]
       if (!seen.has(r)) {
@@ -189,8 +178,8 @@ class Demo {
         )
 
         ctx.fillStyle =
-          // getElevationColor(this.elevations[r])
-          this.elevations[r] < 0.5 ? 'hsl(240, 30%, 50%)' : 'hsl(90, 20%, 50%)'
+          // getColor(this.elevations[r])
+          this.elevations[r] < 0.1 ? 'hsl(240, 30%, 50%)' : 'hsl(90, 20%, 50%)'
         ctx.beginPath()
         ctx.moveTo(vertices[0].x, vertices[0].y)
         for (let i = 1; i < vertices.length; i++) {
@@ -201,13 +190,64 @@ class Demo {
     }
     ctx.restore()
   }
+
+  rerender(params: Params) {
+    this.params = params
+    this.ctx?.clearRect(0, 0, this.width, this.height)
+    this.ctx?.reset()
+    this.resize()
+    this.points = []
+    this.generatePoints()
+    this.generateDelaunay()
+    this.generateCenters()
+
+    this.renderCellsByElevation()
+  }
 }
 
-const demo = new Demo(document.getElementById('map') as HTMLCanvasElement, {
+const params: Params = {
   gridSize: 20,
   jitter: 10,
-  margin: 40
+  margin: 40,
+  noiseOptions: {
+    seed: 100,
+    scale: 1
+  }
+}
+const demo = new Demo(
+  document.getElementById('map') as HTMLCanvasElement,
+  params
+)
+
+const pane = new Pane({
+  title: 'Mapgen Demo'
 })
+const noise = pane.addFolder({
+  title: 'noise'
+})
+noise
+  .addBinding(params.noiseOptions, 'seed', {
+    min: 1,
+    max: 10000,
+    step: 1
+  })
+  .on('change', (ev) => {
+    if (ev.last) {
+      demo.rerender(params)
+    }
+  })
+
+noise
+  .addBinding(params.noiseOptions, 'scale', {
+    min: 0.1,
+    max: 10,
+    step: 0.1
+  })
+  .on('change', (ev) => {
+    if (ev.last) {
+      demo.rerender(params)
+    }
+  })
 
 // demo.renderPoints()
 // demo.renderEdges()

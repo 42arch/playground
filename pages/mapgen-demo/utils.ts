@@ -1,21 +1,47 @@
-import { Color } from 'three'
+import alea from 'alea'
+import { createNoise2D } from 'simplex-noise'
 
-export function getColor(ratio: number) {
-  // const hue = ratio * 0.7 // 0.7限制色相范围避免循环回红色
-  // const saturation = 0.9
-  // const lightness = 0.5
-  // const color = new Color().setHSL(hue, saturation, lightness)
-  // return `rgba(${Math.round(color.r * 255)}, ${Math.round(
-  //   color.g * 255
-  // )}, ${Math.round(color.b * 255)}, 0.5)`
+export function getColor(elevation: number) {
+  const h = 120 - elevation * 120 // 绿到红（120 到 0）
+  const l = 30 + elevation * 50 // 增加亮度
+  return `hsl(${h}, 60%, ${l}%)`
+}
 
-  // const t = Math.max(0, Math.min(1, value))
+export type NoiseOptions = {
+  seed: number
+  scale?: number
+  persistance?: number
+  lacunarity?: number
+  octaves?: number
+  redistribution?: number
+}
 
-  // 冷色(蓝色): 0,100,255
-  // 暖色(红色): 255,50,0
-  const r = Math.round(0 + (255 - 0) * ratio)
-  const g = Math.round(100 + (50 - 100) * ratio)
-  const b = Math.round(255 + (0 - 255) * ratio)
+export function fbm(x: number, y: number, options: NoiseOptions) {
+  const {
+    seed,
+    scale = 1,
+    persistance = 0.5,
+    lacunarity = 2,
+    octaves = 6,
+    redistribution = 1
+  } = options
+  const prng = alea(seed)
+  const noise = createNoise2D(prng)
 
-  return `rgb(${r},${g},${b})`
+  let result = 0
+  let amplitude = 1
+  let frequency = 1
+  let max = amplitude
+
+  for (let i = 0; i < octaves; i++) {
+    let nx = x * scale * frequency
+    let ny = y * scale * frequency
+    let noiseValue = noise(nx, ny)
+    result += noiseValue * amplitude
+    frequency *= lacunarity
+    amplitude *= persistance
+    max += amplitude
+  }
+  const redistributed = Math.pow(result, redistribution)
+  return redistributed / max
 }
