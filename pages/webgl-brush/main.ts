@@ -5,7 +5,9 @@ import {
   OGLRenderingContext,
   Program,
   Renderer,
-  Transform
+  InstancedMesh,
+  Transform,
+  Color
 } from 'ogl'
 import { Pane } from 'tweakpane'
 
@@ -24,10 +26,12 @@ class Brush {
   private gl: OGLRenderingContext
   private camera: Camera
   private scene: Transform
-  private handler: Program
   private dpr: number = 2
   private isDrawing: boolean = false
   private params: Params
+  private currentPosition: [number, number] = [0, 0]
+  private positions: [number, number][] = []
+  private helper?: Mesh
 
   constructor(dom: HTMLDivElement, params: Params) {
     this.dom = dom
@@ -86,6 +90,7 @@ class Brush {
   }
 
   setup() {
+    this.initHelper()
     this.bindEvents()
   }
 
@@ -103,91 +108,107 @@ class Brush {
       const rect = this.dom.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = this.height - (e.clientY - rect.top)
-      this.draw([x, y])
+      this.helper?.position.set(x, y, 0)
     })
   }
 
   draw(position: [number, number]) {
     if (!this.isDrawing) return
     const gl = this.gl
-    const geometry = this.createCircleGeometry()
-    this.handler = new Program(gl, {
+  }
+
+  initHelper() {
+    const gl = this.gl
+    const segments = 64
+    const color = new Color(this.params.color)
+
+    const indices = new Float32Array(segments + 2) // +2: 包括圆心 & 回到起点
+    for (let i = 0; i <= segments + 1; i++) {
+      indices[i] = i
+    }
+
+    const geometry = new Geometry(this.gl, {
+      vertexId: {
+        // 只传入索引，不传入位置
+        size: 1,
+        data: indices
+      }
+    })
+    const program = new Program(this.gl, {
       vertex: `
-        attribute vec2 position;
+        attribute float vertexId;
         uniform mat4 modelViewMatrix;
         uniform mat4 projectionMatrix;
-        uniform vec2 uMouse;
-        uniform float uRadius;
+        uniform float uSegments;
         uniform float uOpacity;
+        uniform float uRadius;
+        uniform vec3 uColor;
         varying float vOpacity;
-        uniform vec4 uColor;
-
-        varying vec2 vLocalPos;
+        varying vec3 vColor;
 
         void main() {
-          float distance = length(position);
+          float angle;
+          vec2 pos;
+          // 根据索引计算位置
+          if (vertexId == 0.0) {
+            angle = 0.0;
+            pos = vec2(0.0, 0.0);
+          } else {
+            angle = (vertexId - 1.0) / uSegments * 2.0 * 3.14159;
+            pos = vec2(cos(angle), sin(angle));
+          }
           vOpacity = uOpacity;
-          vLocalPos = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position + uMouse, 0.0, 1.0);
+          vColor = uColor;
+
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos * uRadius, 0.0, 1.0);
         }
       `,
       fragment: `
         precision highp float;
         varying float vOpacity;
-        varying vec2 vLocalPos;
+        varying vec3 vColor;
+
         void main() {
-          float distance = length(vLocalPos);
-          float alpha = smoothstep(uRadius, uRadius - 1.0, distance);
-          gl_FragColor = vec4(0.0941, 0.0431, 0.5725, vOpacity * alpha);
+          gl_FragColor = vec4(vColor, vOpacity);
         }
       `,
+      transparent: true,
       uniforms: {
-        uMouse: {
-          value: position
-        },
-        uRadius: {
-          value: this.params.radius
+        uSegments: {
+          value: segments
         },
         uOpacity: {
           value: this.params.opacity
         },
+        uRadius: {
+          value: this.params.radius
+        },
         uColor: {
-          value: this.params.color
+          value: color
         }
-      },
-      transparent: true
-    })
-    gl.enable(gl.BLEND)
-    // gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-    const mesh = new Mesh(gl, {
-      geometry,
-      program: this.handler,
-      mode: gl.TRIANGLE_FAN
-    })
-    mesh.setParent(this.scene)
-  }
-
-  createCircleGeometry() {
-    const radius = 15,
-      segments = 64
-    const positions = []
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2
-      positions.push([Math.cos(angle) * radius, Math.sin(angle) * radius])
-    }
-
-    const geometry = new Geometry(this.gl, {
-      position: {
-        size: 2,
-        data: new Float32Array(positions.flat())
       }
     })
-    return geometry
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    this.helper = new Mesh(gl, {
+      geometry,
+      program,
+      mode: gl.TRIANGLE_FAN
+    })
+    this.helper.position.set(
+      this.currentPosition[0],
+      this.currentPosition[1],
+      0
+    )
+    this.helper.setParent(this.scene)
   }
 
   update(params: Params) {
+    if (!this.helper) return
     this.params = params
-    this.handler.uniforms.uOpacity.value = params.opacity
+    this.helper.program.uniforms.uOpacity.value = params.opacity
+    this.helper.program.uniforms.uRadius.value = params.radius
+    this.helper.program.uniforms.uColor.value = new Color(params.color)
   }
 }
 
@@ -206,11 +227,17 @@ const brush = new Brush(
 const pane = new Pane({
   title: 'WebGL Brush'
 })
-pane.addBinding(params, 'radius', {
-  min: 1,
-  max: 30,
-  step: 1
-})
+pane
+  .addBinding(params, 'radius', {
+    min: 1,
+    max: 40,
+    step: 1
+  })
+  .on('change', (e) => {
+    if (e.last) {
+      brush.update(params)
+    }
+  })
 
 pane
   .addBinding(params, 'opacity', {
@@ -220,7 +247,6 @@ pane
   })
   .on('change', (e) => {
     if (e.last) {
-      // console.log('opacity', e)
       brush.update(params)
     }
   })
@@ -236,8 +262,7 @@ pane
     view: 'color'
   })
   .on('change', (e) => {
-    // brush.update(params)
     if (e.last) {
-      console.log('color', e)
+      brush.update(params)
     }
   })
