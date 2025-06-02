@@ -107,36 +107,36 @@ export function fbm(x: number, y: number, options: NoiseOptions) {
   return redistributed / max
 }
 
-export function makeFbmGenerator(options: NoiseOptions) {
-  const {
-    seed,
-    scale = 1,
-    persistance = 0.5,
-    lacunarity = 2,
-    octaves = 6,
-    redistribution = 1
-  } = options
+// export function makeFbmGenerator(options: NoiseOptions) {
+//   const {
+//     seed,
+//     scale = 1,
+//     persistance = 0.5,
+//     lacunarity = 2,
+//     octaves = 6,
+//     redistribution = 1
+//   } = options
 
-  const prng = alea(seed)
-  const noise2D = createNoise2D(prng)
+//   const prng = alea(seed)
+//   const noise2D = createNoise2D(prng)
 
-  return function fbm(x: number, y: number): number {
-    let result = 0
-    let amplitude = 1
-    let frequency = 1
-    let max = 0
+//   return function fbm(x: number, y: number): number {
+//     let result = 0
+//     let amplitude = 1
+//     let frequency = 1
+//     let max = 0
 
-    for (let i = 0; i < octaves; i++) {
-      let nx = x * scale * frequency
-      let ny = y * scale * frequency
-      let noiseValue = noise2D(nx, ny)
-      result += (noiseValue * 0.5 + 0.5) * amplitude
-      max += amplitude
-      frequency *= lacunarity
-      amplitude *= persistance
-    }
+//     for (let i = 0; i < octaves; i++) {
+//       let nx = x * scale * frequency
+//       let ny = y * scale * frequency
+//       let noiseValue = noise2D(nx, ny)
+//       result += (noiseValue * 0.5 + 0.5) * amplitude
+//       max += amplitude
+//       frequency *= lacunarity
+//       amplitude *= persistance
+//     }
 
-    const normalized = result / max
-    return Math.pow(normalized, redistribution)
-  }
-}
+//     const normalized = result / max
+//     return Math.pow(normalized, redistribution)
+//   }
+// }

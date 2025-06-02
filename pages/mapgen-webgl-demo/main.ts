@@ -1,6 +1,6 @@
 // import Delaunator from 'delaunator'
 import { Delaunay, Voronoi } from 'd3-delaunay'
-import { fbm, getColor, getElevationColor, makeFbmGenerator } from './utils'
+import { fbm, getColor, getElevationColor } from './utils'
 import {
   Camera,
   OGLRenderingContext,
@@ -33,6 +33,7 @@ type Params = {
     cellEdges?: boolean
     cells?: boolean
     cellsByEvelation?: boolean
+    cellsByIslandElevation?: boolean
   }
 }
 
@@ -51,6 +52,7 @@ class Demo {
   private voronoi!: Voronoi<Float64Array<ArrayBufferLike>>
   private cells: Delaunay.Polygon[] = []
   private elevations: number[] = []
+  private islandElevations: number[] = []
 
   constructor(dom: HTMLDivElement, params: Params) {
     this.dom = dom
@@ -326,7 +328,6 @@ class Demo {
   }
 
   renderCellEdges() {
-    console.log('render cell edges')
     const gl = this.gl
 
     const cells = this.cells
@@ -517,22 +518,99 @@ class Demo {
     mesh.setParent(this.scene)
   }
 
+  renderCellsByIslandElevation() {
+    const cells = this.cells
+    const elevations = this.islandElevations
+    let indexOffset = 0
+    const gl = this.gl
+    const positions: number[] = []
+    const indices: number[] = []
+    const colors: number[] = []
+
+    for (let i = 0; i < cells.length; i++) {
+      const p = cells[i]
+      const flat = p.flat()
+      const color = elevations[i] < 0.48 ? [0, 0, 1, 1] : [0, 1, 0, 1]
+      for (let i = 0; i < flat.length / 2; i++) {
+        colors.push(...color)
+      }
+      const cellIndices = earcut(flat)
+      positions.push(...flat)
+      for (let i = 0; i < cellIndices.length; i++) {
+        indices.push(cellIndices[i] + indexOffset)
+      }
+      indexOffset += flat.length / 2
+    }
+
+    const geometry = new Geometry(gl, {
+      position: { size: 2, data: new Float32Array(positions) },
+      index: { data: new Uint32Array(indices) },
+      color: {
+        size: 4,
+        data: new Float32Array(colors)
+      }
+    })
+
+    const program = new Program(gl, {
+      vertex: `
+        attribute vec2 position;
+        attribute vec4 color;
+        varying vec4 vColor;
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+
+        void main() {
+          vColor = color;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 0.0, 1.0);
+        }
+      `,
+      fragment: `
+        precision highp float;
+        varying vec4 vColor;
+
+        void main() {
+          gl_FragColor = vec4(vColor);
+        }
+      `,
+      cullFace: null,
+      transparent: true
+    })
+
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    const mesh = new Mesh(gl, {
+      geometry,
+      program,
+      mode: gl.TRIANGLES
+    })
+    mesh.setParent(this.scene)
+  }
+
   assignElevation() {
     const points = this.points
     this.elevations = []
-    // const fbm = makeFbmGenerator(this.params.noise)
     for (let i = 0; i < points.length; i++) {
       let nx = points[i].x / this.width
       let ny = points[i].y / this.height
       const elevation = fbm(nx, ny, this.params.noise)
       this.elevations.push(elevation)
     }
+  }
 
-    console.log(
-      this.elevations.length,
-      Math.max(...this.elevations),
-      Math.min(...this.elevations)
-    )
+  assignIslandElevation() {
+    const points = this.points
+    this.islandElevations = []
+    for (let i = 0; i < points.length; i++) {
+      let nx = points[i].x / this.width
+      let ny = points[i].y / this.height
+
+      let dx = (points[i].x - this.width / 2) / this.width
+      let dy = (points[i].y - this.height / 2) / this.height
+      const elevation = fbm(nx, ny, this.params.noise)
+      let d = Math.max(Math.abs(dx), Math.abs(dy))
+      const ee = (1 + elevation / 2 - d) / 2
+      this.islandElevations.push(ee)
+    }
   }
 
   render() {
@@ -544,6 +622,7 @@ class Demo {
     display.cellEdges && this.renderCellEdges()
     display.cells && this.renderCells()
     display.cellsByEvelation && this.renderCellsByElevation()
+    display.cellsByIslandElevation && this.renderCellsByIslandElevation()
   }
 
   rerender(params: Params) {
@@ -552,6 +631,7 @@ class Demo {
     this.generatePoints()
     this.generateDelaunay()
     this.assignElevation()
+    this.assignIslandElevation()
     this.render()
   }
 }
@@ -574,7 +654,8 @@ const params: Params = {
     triangles: false,
     cellEdges: false,
     cells: false,
-    cellsByEvelation: false
+    cellsByEvelation: false,
+    cellsByIslandElevation: false
   }
 }
 
@@ -682,3 +763,8 @@ display.addBinding(params.display, 'cells').on('change', (e) => {
 display.addBinding(params.display, 'cellsByEvelation').on('change', (e) => {
   demo.rerender(params)
 })
+display
+  .addBinding(params.display, 'cellsByIslandElevation')
+  .on('change', (e) => {
+    demo.rerender(params)
+  })
