@@ -1,12 +1,13 @@
 import alea from 'alea'
 import { createNoise2D } from 'simplex-noise'
-import { Color } from 'three'
+import { Color as TColor } from 'three'
+import { Color } from 'ogl'
 
 export function getColor(ratio: number) {
   const hue = ratio * 0.7
   const saturation = 0.9
   const lightness = 0.5
-  const color = new Color().setHSL(hue, saturation, lightness)
+  const color = new TColor().setHSL(hue, saturation, lightness)
   // return `rgba(${Math.round(color.r * 255)}, ${Math.round(
   //   color.g * 255
   // )}, ${Math.round(color.b * 255)}, 0.5)`
@@ -15,54 +16,64 @@ export function getColor(ratio: number) {
 }
 
 export function getElevationColor(
-  noise: number
+  elevation: number,
+  seaLevel: number
 ): [number, number, number, number] {
-  const clamp = (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v))
-  noise = clamp(noise)
+  // const clamp = (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v))
+  // noise = clamp(noise)
 
-  let r = 0,
-    g = 0,
-    b = 0
+  // elevation = elevation - seaLevel
 
-  if (noise < 0.15) {
-    // 深海: 深蓝
-    r = 0
-    g = 0
-    b = 128
-  } else if (noise < 0.3) {
-    // 浅海: 浅蓝绿
-    r = 0
-    g = 206
-    b = 209
-  } else if (noise < 0.45) {
-    // 平原: 草绿色
-    r = 124
-    g = 252
-    b = 0
-  } else if (noise < 0.6) {
-    // 丘陵: 黄绿色
-    r = 173
-    g = 255
-    b = 47
-  } else if (noise < 0.75) {
-    // 山地: 棕色
-    r = 205
-    g = 133
-    b = 63
-  } else if (noise < 0.9) {
-    // 高山: 灰色
-    r = 169
-    g = 169
-    b = 169
-  } else {
-    // 雪山: 白色
-    r = 255
-    g = 255
-    b = 255
+  const colors = {
+    snow: {
+      value: 0.6,
+      color: '#9aa7ad'
+    },
+    stone: {
+      value: 0.36,
+      color: '#656565'
+    },
+    forest: {
+      value: 0.29,
+      color: '#586647'
+    },
+    shrub: {
+      value: 0.1,
+      color: '#9ea667'
+    },
+    beach: {
+      value: 0.04,
+      color: '#efb28f'
+    },
+    shore: {
+      value: 0.01,
+      color: '#ffd68f'
+    },
+    water: {
+      value: 0.12,
+      color: '#00a9ff'
+    }
   }
 
-  // WebGL 使用 [0,1] 范围
-  return [r / 255, g / 255, b / 255, 0.8]
+  let color
+
+  if (elevation < seaLevel) {
+    color = new Color(colors.water.color)
+  } else if (elevation < seaLevel + colors.shore.value) {
+    color = new Color(colors.shore.color)
+  } else if (elevation < seaLevel + colors.beach.value) {
+    color = new Color(colors.beach.color)
+  } else if (elevation < seaLevel + colors.shrub.value) {
+    color = new Color(colors.shrub.color)
+  } else if (elevation < seaLevel + colors.forest.value) {
+    color = new Color(colors.forest.color)
+  } else if (elevation < seaLevel + colors.stone.value) {
+    color = new Color(colors.stone.color)
+  } else {
+    color = new Color(colors.snow.color)
+  }
+
+  return [color.r, color.g, color.b, 0.95]
 }
 
 export type NoiseOptions = {

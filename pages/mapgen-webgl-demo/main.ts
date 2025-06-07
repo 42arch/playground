@@ -1,4 +1,3 @@
-// import Delaunator from 'delaunator'
 import { Delaunay, Voronoi } from 'd3-delaunay'
 import { fbm, getColor, getElevationColor } from './utils'
 import {
@@ -8,7 +7,8 @@ import {
   Renderer,
   Transform,
   Mesh,
-  Geometry
+  Geometry,
+  Color
 } from 'ogl'
 import earcut from 'earcut'
 import PoissonDiskSampling from 'poisson-disk-sampling'
@@ -23,6 +23,7 @@ type Point = {
 
 type Params = {
   gridSize: number
+  seaLevel: number
   margin: number
   noise: NoiseOptions
   display: {
@@ -458,11 +459,10 @@ class Demo {
     const positions: number[] = []
     const indices: number[] = []
     const colors: number[] = []
-
     for (let i = 0; i < cells.length; i++) {
       const p = cells[i]
       const flat = p.flat()
-      const color = getElevationColor(elevations[i])
+      const color = getElevationColor(elevations[i], this.params.seaLevel)
       for (let i = 0; i < flat.length / 2; i++) {
         colors.push(...color)
       }
@@ -530,7 +530,10 @@ class Demo {
     for (let i = 0; i < cells.length; i++) {
       const p = cells[i]
       const flat = p.flat()
-      const color = elevations[i] < 0.48 ? [0, 0, 1, 1] : [0, 1, 0, 1]
+      const c = new Color('#00a9ff')
+
+      // const color = elevations[i] < 0.48 ? [c.r, c.g, c.b, 0.8] : [0, 1, 0, 1]
+      const color = getElevationColor(elevations[i], this.params.seaLevel)
       for (let i = 0; i < flat.length / 2; i++) {
         colors.push(...color)
       }
@@ -639,6 +642,7 @@ class Demo {
 const params: Params = {
   gridSize: 20,
   margin: 0,
+  seaLevel: 0.48,
   noise: {
     seed: 1994,
     scale: 1,
@@ -670,6 +674,18 @@ pane
     min: 2,
     max: 50,
     step: 1
+  })
+  .on('change', (e) => {
+    if (e.last) {
+      demo.rerender(params)
+    }
+  })
+
+pane
+  .addBinding(params, 'seaLevel', {
+    min: 0,
+    max: 1,
+    step: 0.01
   })
   .on('change', (e) => {
     if (e.last) {
