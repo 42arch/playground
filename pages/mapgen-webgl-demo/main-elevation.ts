@@ -35,13 +35,7 @@ type Params = {
     cells?: boolean
     cellsByEvelation?: boolean
     cellsByIslandElevation?: boolean
-    rivers?: boolean
   }
-}
-
-type River = {
-  path: number[]
-  source: number
 }
 
 class Demo {
@@ -59,9 +53,7 @@ class Demo {
   private voronoi!: Voronoi<Float64Array<ArrayBufferLike>>
   private cells: Delaunay.Polygon[] = []
   private elevations: number[] = []
-  private moisture: number[] = []
   private islandElevations: number[] = []
-  private rivers: River[] = []
 
   constructor(dom: HTMLDivElement, params: Params) {
     this.dom = dom
@@ -92,8 +84,6 @@ class Demo {
     this.generateDelaunay()
     this.assignElevation()
     this.assignIslandElevation()
-    this.assignMoisture()
-    this.generateRivers()
   }
 
   resize() {
@@ -149,51 +139,6 @@ class Demo {
     this.cells = Array.from({ length: this.points.length }, (_, i) =>
       this.voronoi.cellPolygon(i)
     )
-  }
-
-  generateRivers() {
-    const riverCount = 10
-    // const elevations = this.elevations
-    const elevations = this.islandElevations
-    const rivers = []
-    const visited = new Set<number>()
-
-    const highPoints = this.points
-      .map((_, i) => i)
-      .filter((i) => elevations[i] > 0.6)
-      .sort((a, b) => elevations[b] - elevations[a])
-
-    // console.log('elevations', elevations)
-    // console.log('highPoints', highPoints)
-
-    let chosen = 0
-    for (const source of highPoints) {
-      if (chosen >= riverCount || visited.has(source)) continue
-
-      const path = [source]
-      let current = source
-      visited.add(current)
-
-      while (elevations[current] >= this.params.seaLevel) {
-        const neighbors = Array.from(this.voronoi.neighbors(current))
-        // console.log('neighbors', neighbors)
-        if (neighbors.length === 0) break
-        const next = neighbors
-          .filter((n) => elevations[n] < elevations[current])
-          .sort((a, b) => elevations[a] - elevations[b])[0]
-
-        if (next === undefined || visited.has(next)) break
-        path.push(next)
-        visited.add(next)
-        current = next
-      }
-      if (path.length > 1) {
-        rivers.push({ path, source })
-        chosen++
-      }
-    }
-
-    this.rivers = rivers
   }
 
   // 获取同一三角形中 顺时针的下一条边
@@ -645,59 +590,6 @@ class Demo {
     mesh.setParent(this.scene)
   }
 
-  renderRivers() {
-    const rivers = this.rivers
-    const points = this.points
-    const elevations = this.islandElevations
-    const gl = this.gl
-
-    const positions: number[] = []
-    for (const river of rivers) {
-      // river.path
-      const path = river.path
-      for (let i = 0; i < path.length - 1; i++) {
-        const a = points[path[i]]
-        const b = points[path[i + 1]]
-
-        // 添加两个点组成的线段：a → b
-        positions.push(a.x, a.y, 0) // y 方向作为 z → y 映射
-        positions.push(b.x, b.y, 0)
-      }
-
-      console.log(
-        'river',
-        river.path.map((i) => points[i]),
-        river.path.map((i) => elevations[i])
-      )
-    }
-    const geometry = new Geometry(gl, {
-      position: { size: 3, data: new Float32Array(positions) }
-    })
-    const program = new Program(gl, {
-      vertex: `
-      attribute vec3 position;
-      uniform mat4 modelViewMatrix;
-      uniform mat4 projectionMatrix;
-      void main() {
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-      fragment: `
-      precision highp float;
-      void main() {
-        gl_FragColor = vec4(0.1, 0.4, 0.9, 1.0); // 蓝色河流
-      }
-    `,
-      transparent: false
-    })
-    const mesh = new Mesh(gl, {
-      geometry,
-      program,
-      mode: gl.LINES
-    })
-    mesh.setParent(this.scene)
-  }
-
   assignElevation() {
     const points = this.points
     this.elevations = []
@@ -706,22 +598,6 @@ class Demo {
       let ny = points[i].y / this.height
       const elevation = fbm(nx, ny, this.params.noise)
       this.elevations.push(elevation)
-    }
-  }
-
-  assignMoisture() {
-    const points = this.points
-    for (let i = 0; i < points.length; i++) {
-      let nx = points[i].x / this.width
-      let ny = points[i].y / this.height
-
-      const baseMoisture = fbm(nx, ny, {
-        ...this.params.noise,
-        seed: this.params.noise.seed + 1
-      })
-      const elevationFactor = 1 - this.elevations[i]
-      const moisture = baseMoisture * (0.5 + elevationFactor * 0.5)
-      this.moisture.push(moisture)
     }
   }
 
@@ -751,7 +627,6 @@ class Demo {
     display.cells && this.renderCells()
     display.cellsByEvelation && this.renderCellsByElevation()
     display.cellsByIslandElevation && this.renderCellsByIslandElevation()
-    display.rivers && this.renderRivers()
   }
 
   rerender(params: Params) {
@@ -761,7 +636,6 @@ class Demo {
     this.generateDelaunay()
     this.assignElevation()
     this.assignIslandElevation()
-    this.generateRivers()
     this.render()
   }
 }
@@ -786,8 +660,7 @@ const params: Params = {
     cellEdges: false,
     cells: false,
     cellsByEvelation: false,
-    cellsByIslandElevation: false,
-    rivers: false
+    cellsByIslandElevation: false
   }
 }
 
@@ -795,8 +668,7 @@ const demo = new Demo(document.getElementById('demo') as HTMLDivElement, params)
 demo.render()
 
 const pane = new Pane({
-  title: 'mapgen-webgl-demo',
-  expanded: false
+  title: 'mapgen-webgl-demo'
 })
 pane
   .addBinding(params, 'gridSize', {
@@ -913,7 +785,3 @@ display
   .on('change', (e) => {
     demo.rerender(params)
   })
-
-display.addBinding(params.display, 'rivers').on('change', (e) => {
-  demo.rerender(params)
-})
