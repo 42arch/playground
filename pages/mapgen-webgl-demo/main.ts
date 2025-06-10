@@ -15,6 +15,7 @@ import PoissonDiskSampling from 'poisson-disk-sampling'
 import alea from 'alea'
 import { NoiseOptions } from './utils'
 import { Pane } from 'tweakpane'
+import { generateRivers } from './river'
 
 type Point = {
   x: number
@@ -39,10 +40,7 @@ type Params = {
   }
 }
 
-type River = {
-  path: number[]
-  source: number
-}
+type River = number[][]
 
 class Demo {
   private dom: HTMLDivElement
@@ -61,7 +59,7 @@ class Demo {
   private elevations: number[] = []
   private moisture: number[] = []
   private islandElevations: number[] = []
-  private rivers: River[] = []
+  private rivers: number[][] = []
 
   constructor(dom: HTMLDivElement, params: Params) {
     this.dom = dom
@@ -151,52 +149,60 @@ class Demo {
     )
   }
 
-  generateRivers() {
-    const riverCount = 10
-    // const elevations = this.elevations
-    const elevations = this.islandElevations
-    const rivers = []
-    const visited = new Set<number>()
+  // generateRivers() {
+  //   const riverCount = 10
+  //   // const elevations = this.elevations
+  //   const elevations = this.islandElevations
+  //   const rivers = []
+  //   const visited = new Set<number>()
 
-    const highPoints = this.points
-      .map((_, i) => i)
-      .filter((i) => elevations[i] > 0.6)
-      .sort((a, b) => elevations[b] - elevations[a])
+  //   const highPoints = this.points
+  //     .map((_, i) => i)
+  //     .filter((i) => elevations[i] > 0.6)
+  //     .sort((a, b) => elevations[b] - elevations[a])
 
-    // console.log('elevations', elevations)
-    // console.log('highPoints', highPoints)
+  //   // console.log('elevations', elevations)
+  //   // console.log('highPoints', highPoints)
 
-    let chosen = 0
-    for (const source of highPoints) {
-      if (chosen >= riverCount || visited.has(source)) continue
+  //   let chosen = 0
+  //   for (const source of highPoints) {
+  //     if (chosen >= riverCount || visited.has(source)) continue
 
-      const path = [source]
-      let current = source
-      visited.add(current)
+  //     const path = [source]
+  //     let current = source
+  //     visited.add(current)
 
-      while (elevations[current] >= this.params.seaLevel) {
-        const neighbors = Array.from(this.voronoi.neighbors(current))
-        // console.log('neighbors', neighbors)
-        if (neighbors.length === 0) break
-        const next = neighbors
-          .filter((n) => elevations[n] < elevations[current])
-          .sort((a, b) => elevations[a] - elevations[b])[0]
+  //     while (elevations[current] >= this.params.seaLevel) {
+  //       const neighbors = Array.from(this.voronoi.neighbors(current))
+  //       // console.log('neighbors', neighbors)
+  //       if (neighbors.length === 0) break
+  //       const next = neighbors
+  //         .filter((n) => elevations[n] < elevations[current])
+  //         .sort((a, b) => elevations[a] - elevations[b])[0]
 
-        if (next === undefined || visited.has(next)) break
-        path.push(next)
-        visited.add(next)
-        current = next
-      }
-      if (path.length > 1) {
-        rivers.push({ path, source })
-        chosen++
-      }
-    }
+  //       if (next === undefined || visited.has(next)) break
+  //       path.push(next)
+  //       visited.add(next)
+  //       current = next
+  //     }
+  //     if (path.length > 1) {
+  //       rivers.push({ path, source })
+  //       chosen++
+  //     }
+  //   }
 
-    this.rivers = rivers
-  }
+  //   this.rivers = rivers
+  // }
 
   // 获取同一三角形中 顺时针的下一条边
+
+  generateRivers() {
+    const rivers = generateRivers(this.delaunay, this.islandElevations, 5)
+    this.rivers = rivers
+
+    console.log('rivers', this.rivers)
+  }
+
   nextHalfedge(e: number) {
     return e % 3 === 2 ? e - 2 : e + 1
   }
@@ -654,7 +660,7 @@ class Demo {
     const positions: number[] = []
     for (const river of rivers) {
       // river.path
-      const path = river.path
+      const path = river
       for (let i = 0; i < path.length - 1; i++) {
         const a = points[path[i]]
         const b = points[path[i + 1]]
@@ -666,8 +672,8 @@ class Demo {
 
       console.log(
         'river',
-        river.path.map((i) => points[i]),
-        river.path.map((i) => elevations[i])
+        river.map((i) => points[i]),
+        river.map((i) => elevations[i])
       )
     }
     const geometry = new Geometry(gl, {
