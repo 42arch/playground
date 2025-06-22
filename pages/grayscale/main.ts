@@ -6,11 +6,7 @@ import {
   DirectionalLight,
   DoubleSide,
   Group,
-  InstancedBufferAttribute,
-  InstancedMesh,
   Mesh,
-  MeshBasicMaterial,
-  Object3D,
   PerspectiveCamera,
   PlaneGeometry,
   Scene,
@@ -20,16 +16,27 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/Addons.js'
 import { Pane } from 'tweakpane'
+import chessVertex from './shaders/chess/main.vert'
+import chessFragment from './shaders/chess/main.frag'
+import falloffVertex from './shaders/falloff/main.vert'
+import falloffFragment from './shaders/falloff/main.frag'
+import noiseVertext from './shaders/noise/main.vert'
+import noiseFragment from './shaders/noise/main.frag'
 
 interface Params {
   type: string
   size: number
   cellSize: number
+  opacity: number
   falloff: {
     point: {
       x: number
       y: number
     }
+  }
+  noise: {
+    seed: number
+    scale: number
   }
 }
 
@@ -126,37 +133,11 @@ class View {
         uSize: { value: size },
         uCellSize: { value: cellSize },
         uColor1: { value: new Color(0xffffff) },
-        uColor2: { value: new Color(0x000000) }
+        uColor2: { value: new Color(0x000000) },
+        uOpacity: { value: this.params.opacity }
       },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        uniform float uSize;
-        uniform float uCellSize;
-        uniform vec3 uColor1;
-        uniform vec3 uColor2;
-
-        void main() {
-          // 把[0, 1]的uv坐标转换为[-0.5, 0.5]再乘以总大小，得到世界坐标
-          vec2 pos = (vUv - 0.5) * uSize;
-          // 通过除以cellSize得到网格坐标（在第几个格子）
-          vec2 cell = floor(pos / uCellSize);
-          // 根据横纵坐标之和的奇偶性来判断是黑白棋盘
-          float pattern = mod(cell.x + cell.y, 2.0);
-          // pattern小于0.5时，使用uColor1，否则使用uColor2：
-          // step函数阈值为0.5，小于阈值返回0，大于阈值返回1，
-          // mix函数根据pattern的值来插值，混合因子要么是0，要么是1，所以颜色值要么是uColor1，要么是uColor2
-          vec3 color = mix(uColor1, uColor2, step(0.5, pattern));
-
-          gl_FragColor = vec4(color, 0.5);
-        }
-      `,
+      vertexShader: chessVertex,
+      fragmentShader: chessFragment,
       transparent: true,
       side: DoubleSide
     })
@@ -169,54 +150,36 @@ class View {
     const cellSize = this.params.cellSize
     const centerPoint = this.params.falloff.point
 
-    console.log('center', centerPoint)
-
     const material = new ShaderMaterial({
       uniforms: {
         uSize: { value: size },
         uCellSize: { value: cellSize },
         uPoint: { value: new Vector2(centerPoint.x, centerPoint.y) },
         uColor1: { value: new Color(0xffffff) },
-        uColor2: { value: new Color(0x000000) }
+        uColor2: { value: new Color(0x000000) },
+        uOpacity: { value: this.params.opacity }
       },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        uniform float uSize;
-        uniform float uCellSize;
-        uniform vec3 uColor1;
-        uniform vec3 uColor2;
-        uniform vec2 uPoint;
+      vertexShader: falloffVertex,
+      fragmentShader: falloffFragment,
+      transparent: true,
+      side: DoubleSide
+    })
+    return material
+  }
 
-        void main() {
-          vec2 pos = (vUv - 0.5) * uSize;
-          vec2 cell = floor(pos / uCellSize);
-
-          // 计算每个格子的中心坐标（以格子坐标为单位）
-          vec2 cellCenter = (cell + 0.5) * uCellSize;
-
-          // 距离棋盘中心 (0, 0) 的距离
-          // float dist = length(cellCenter);
-          float dist = distance(cellCenter, uPoint);
-
-          // 最大可能的距离（在角落处）
-          // float maxDist = length(vec2(uSize, uSize) * 0.5);
-          float maxDist = distance(vec2(uSize, uSize) * 0.5, uPoint);
-
-          // 归一化到 0~1
-          float t = pow(clamp(dist / maxDist, 0.0, 1.0), 0.5);
-
-          vec3 color = mix(uColor1, uColor2, t);
-
-          gl_FragColor = vec4(color, 1.0);
-        }
-      `,
+  createNoiseMaterial() {
+    const size = this.params.size
+    const cellSize = this.params.cellSize
+    const material = new ShaderMaterial({
+      uniforms: {
+        uSize: { value: size },
+        uSeed: { value: this.params.noise.seed },
+        uCellSize: { value: cellSize },
+        uOpacity: { value: this.params.opacity },
+        uScale: { value: this.params.noise.scale }
+      },
+      vertexShader: noiseVertext,
+      fragmentShader: noiseFragment,
       transparent: true,
       side: DoubleSide
     })
@@ -242,11 +205,12 @@ class View {
       case 'falloff':
         material = this.createFalloffMaterial()
         break
+      case 'noise':
+        material = this.createNoiseMaterial()
+        break
       default:
         break
     }
-    // const material = this.createChessMaterial()
-    // const material = this.createFalloffMaterial()
     const mesh = new Mesh(geometry, material)
 
     this.group.add(mesh)
@@ -266,14 +230,19 @@ class View {
 }
 
 const params: Params = {
-  type: 'noise',
+  type: 'chess',
   size: 1000,
   cellSize: 10,
+  opacity: 0.5,
   falloff: {
     point: {
       x: 0,
       y: 0
     }
+  },
+  noise: {
+    seed: 1,
+    scale: 0.01
   }
 }
 const types = ['chess', 'falloff', 'noise', 'fbm'].map((i) => {
@@ -302,6 +271,11 @@ common.addBinding(params, 'size', {
   max: 1000,
   step: 20
 })
+common.addBinding(params, 'opacity', {
+  min: 0,
+  max: 1,
+  step: 0.01
+})
 
 const tab = pane
   .addTab({
@@ -323,6 +297,17 @@ tab.pages[1].addBinding(params.falloff, 'point', {
     max: params.size / 2,
     step: 1
   }
+})
+
+tab.pages[2].addBinding(params.noise, 'seed', {
+  min: 0,
+  max: 100,
+  step: 1
+})
+tab.pages[2].addBinding(params.noise, 'scale', {
+  min: 0,
+  max: 0.1,
+  step: 0.001
 })
 
 pane.on('change', (e) => {
