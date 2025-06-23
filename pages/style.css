@@ -6,3 +6,12 @@ body {
   margin: 0;
   overflow: hidden;
 }
+
+:root {
+  .tp-tabv_t {
+    flex-wrap: wrap;
+  }
+  .tp-tbiv {
+    flex: auto !important;
+  }
+}

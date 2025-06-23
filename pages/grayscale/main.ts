@@ -16,18 +16,31 @@ import {
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/Addons.js'
 import { Pane } from 'tweakpane'
-import chessVertex from './shaders/chess/main.vert'
-import chessFragment from './shaders/chess/main.frag'
+import chessboardVertex from './shaders/chessboard/main.vert'
+import chessboardFragment from './shaders/chessboard/main.frag'
 import falloffVertex from './shaders/falloff/main.vert'
 import falloffFragment from './shaders/falloff/main.frag'
-import noiseVertext from './shaders/noise/main.vert'
+import randomVertex from './shaders/random/main.vert'
+import randomFragment from './shaders/random/main.frag'
+import noiseVertex from './shaders/noise/main.vert'
 import noiseFragment from './shaders/noise/main.frag'
+import fbmVertex from './shaders/fbm/main.vert'
+import fbmFragement from './shaders/fbm/main.frag'
+
+enum Type {
+  Chessboard = 'chessboard',
+  Falloff = 'falloff',
+  Random = 'random',
+  Noise = 'noise',
+  FBM = 'fbm'
+}
 
 interface Params {
-  type: string
+  type: Type
   size: number
   cellSize: number
   opacity: number
+  axes: boolean
   falloff: {
     point: {
       x: number
@@ -37,6 +50,14 @@ interface Params {
   noise: {
     seed: number
     scale: number
+  }
+  fbm: {
+    seed: number
+    scale: number
+    octaves: number
+    lacunarity: number
+    persistance: number
+    redistribution: number
   }
 }
 
@@ -122,10 +143,10 @@ class View {
 
   addHelper() {
     const helper = new AxesHelper((this.params.size * 2) / 3)
-    this.scene.add(helper)
+    this.group.add(helper)
   }
 
-  createChessMaterial() {
+  createChessboardMaterial() {
     const size = this.params.size
     const cellSize = this.params.cellSize
     const material = new ShaderMaterial({
@@ -136,8 +157,8 @@ class View {
         uColor2: { value: new Color(0x000000) },
         uOpacity: { value: this.params.opacity }
       },
-      vertexShader: chessVertex,
-      fragmentShader: chessFragment,
+      vertexShader: chessboardVertex,
+      fragmentShader: chessboardFragment,
       transparent: true,
       side: DoubleSide
     })
@@ -167,6 +188,24 @@ class View {
     return material
   }
 
+  createRandomMaterial() {
+    const size = this.params.size
+    const cellSize = this.params.cellSize
+    const material = new ShaderMaterial({
+      uniforms: {
+        uSize: { value: size },
+        uCellSize: { value: cellSize },
+        uRandom: { value: Math.random() },
+        uOpacity: { value: this.params.opacity }
+      },
+      vertexShader: randomVertex,
+      fragmentShader: randomFragment,
+      transparent: true,
+      side: DoubleSide
+    })
+    return material
+  }
+
   createNoiseMaterial() {
     const size = this.params.size
     const cellSize = this.params.cellSize
@@ -178,8 +217,31 @@ class View {
         uOpacity: { value: this.params.opacity },
         uScale: { value: this.params.noise.scale }
       },
-      vertexShader: noiseVertext,
+      vertexShader: noiseVertex,
       fragmentShader: noiseFragment,
+      transparent: true,
+      side: DoubleSide
+    })
+    return material
+  }
+
+  createFbmMaterial() {
+    const size = this.params.size
+    const cellSize = this.params.cellSize
+    const material = new ShaderMaterial({
+      uniforms: {
+        uSize: { value: size },
+        uCellSize: { value: cellSize },
+        uOpacity: { value: this.params.opacity },
+        uSeed: { value: this.params.fbm.seed },
+        uScale: { value: this.params.fbm.scale },
+        uOctaves: { value: this.params.fbm.octaves },
+        uLacunarity: { value: this.params.fbm.lacunarity },
+        uPersistance: { value: this.params.fbm.persistance },
+        uRedistribution: { value: this.params.fbm.redistribution }
+      },
+      vertexShader: fbmVertex,
+      fragmentShader: fbmFragement,
       transparent: true,
       side: DoubleSide
     })
@@ -199,14 +261,20 @@ class View {
     )
     let material
     switch (type) {
-      case 'chess':
-        material = this.createChessMaterial()
+      case Type.Chessboard:
+        material = this.createChessboardMaterial()
         break
-      case 'falloff':
+      case Type.Falloff:
         material = this.createFalloffMaterial()
         break
-      case 'noise':
+      case Type.Random:
+        material = this.createRandomMaterial()
+        break
+      case Type.Noise:
         material = this.createNoiseMaterial()
+        break
+      case Type.FBM:
+        material = this.createFbmMaterial()
         break
       default:
         break
@@ -217,7 +285,9 @@ class View {
   }
 
   render() {
-    this.addHelper()
+    if (this.params.axes) {
+      this.addHelper()
+    }
     this.addGrid()
   }
 
@@ -230,10 +300,11 @@ class View {
 }
 
 const params: Params = {
-  type: 'chess',
+  type: Type.Chessboard,
   size: 1000,
   cellSize: 10,
   opacity: 0.5,
+  axes: false,
   falloff: {
     point: {
       x: 0,
@@ -243,18 +314,21 @@ const params: Params = {
   noise: {
     seed: 1,
     scale: 0.01
+  },
+  fbm: {
+    seed: 1,
+    scale: 0.01,
+    octaves: 6,
+    persistance: 0.5,
+    lacunarity: 2,
+    redistribution: 1
   }
 }
-const types = ['chess', 'falloff', 'noise', 'fbm'].map((i) => {
-  return {
-    title: i
-  }
-})
 
 const view = new View('canvas.webgl', params)
 
 const pane = new Pane({
-  title: 'greyscale'
+  title: `greyscale-${params.type}`
 })
 
 const common = pane.addFolder({
@@ -276,6 +350,19 @@ common.addBinding(params, 'opacity', {
   max: 1,
   step: 0.01
 })
+common.addBinding(params, 'axes')
+
+const types = [
+  Type.Chessboard,
+  Type.Falloff,
+  Type.Random,
+  Type.Noise,
+  Type.FBM
+].map((i) => {
+  return {
+    title: i
+  }
+})
 
 const tab = pane
   .addTab({
@@ -284,30 +371,72 @@ const tab = pane
   .on('select', (e) => {
     params.type = types[e.index].title
     view.rerender(params)
+    pane.title = `greyscale-${params.type}`
   })
 
 tab.pages[1].addBinding(params.falloff, 'point', {
   x: {
     min: -params.size / 2,
     max: params.size / 2,
-    step: 1
+    step: 1,
+    inverted: true
   },
   y: {
     min: -params.size / 2,
     max: params.size / 2,
-    step: 1
+    step: 1,
+    inverted: true
   }
 })
 
-tab.pages[2].addBinding(params.noise, 'seed', {
+tab.pages[2]
+  .addButton({
+    title: 'random'
+  })
+  .on('click', () => {
+    view.rerender(params)
+  })
+
+tab.pages[3].addBinding(params.noise, 'seed', {
   min: 0,
   max: 100,
   step: 1
 })
-tab.pages[2].addBinding(params.noise, 'scale', {
+tab.pages[3].addBinding(params.noise, 'scale', {
   min: 0,
   max: 0.1,
   step: 0.001
+})
+
+tab.pages[4].addBinding(params.fbm, 'seed', {
+  min: 0,
+  max: 100,
+  step: 1
+})
+tab.pages[4].addBinding(params.fbm, 'scale', {
+  min: 0,
+  max: 0.1,
+  step: 0.001
+})
+tab.pages[4].addBinding(params.fbm, 'octaves', {
+  min: 1,
+  max: 12,
+  step: 1
+})
+tab.pages[4].addBinding(params.fbm, 'persistance', {
+  min: 0.1,
+  max: 2,
+  step: 0.1
+})
+tab.pages[4].addBinding(params.fbm, 'lacunarity', {
+  min: 0.1,
+  max: 8,
+  step: 0.1
+})
+tab.pages[4].addBinding(params.fbm, 'redistribution', {
+  min: 1,
+  max: 8,
+  step: 1
 })
 
 pane.on('change', (e) => {
