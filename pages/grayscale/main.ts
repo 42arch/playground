@@ -20,6 +20,8 @@ import chessboardVertex from './shaders/chessboard/main.vert'
 import chessboardFragment from './shaders/chessboard/main.frag'
 import falloffVertex from './shaders/falloff/main.vert'
 import falloffFragment from './shaders/falloff/main.frag'
+import multiFalloffVertex from './shaders/multi-falloff/main.vert'
+import multiFalloffFragment from './shaders/multi-falloff/main.frag'
 import randomVertex from './shaders/random/main.vert'
 import randomFragment from './shaders/random/main.frag'
 import noiseVertex from './shaders/noise/main.vert'
@@ -30,9 +32,15 @@ import fbmFragement from './shaders/fbm/main.frag'
 enum Type {
   Chessboard = 'chessboard',
   Falloff = 'falloff',
+  MultiFalloff = 'multi-falloff',
   Random = 'random',
   Noise = 'noise',
   FBM = 'fbm'
+}
+
+type Point = {
+  x: number
+  y: number
 }
 
 interface Params {
@@ -42,10 +50,10 @@ interface Params {
   opacity: number
   axes: boolean
   falloff: {
-    point: {
-      x: number
-      y: number
-    }
+    point: Point
+  }
+  multiFalloff: {
+    points: Point[]
   }
   noise: {
     seed: number
@@ -188,6 +196,30 @@ class View {
     return material
   }
 
+  createMultiFalloffMaterial() {
+    const size = this.params.size
+    const cellSize = this.params.cellSize
+    const points = this.params.multiFalloff.points.map(
+      (p) => new Vector2(p.x, p.y)
+    )
+
+    const material = new ShaderMaterial({
+      uniforms: {
+        uSize: { value: size },
+        uCellSize: { value: cellSize },
+        uPoints: { value: points },
+        uColor1: { value: new Color(0xffffff) },
+        uColor2: { value: new Color(0x000000) },
+        uOpacity: { value: this.params.opacity }
+      },
+      vertexShader: multiFalloffVertex,
+      fragmentShader: multiFalloffFragment,
+      transparent: true,
+      side: DoubleSide
+    })
+    return material
+  }
+
   createRandomMaterial() {
     const size = this.params.size
     const cellSize = this.params.cellSize
@@ -267,6 +299,9 @@ class View {
       case Type.Falloff:
         material = this.createFalloffMaterial()
         break
+      case Type.MultiFalloff:
+        material = this.createMultiFalloffMaterial()
+        break
       case Type.Random:
         material = this.createRandomMaterial()
         break
@@ -310,6 +345,22 @@ const params: Params = {
       x: 0,
       y: 0
     }
+  },
+  multiFalloff: {
+    points: [
+      {
+        x: 0,
+        y: 0
+      },
+      {
+        x: 200,
+        y: 210
+      },
+      {
+        x: -200,
+        y: -210
+      }
+    ]
   },
   noise: {
     seed: 1,
@@ -355,6 +406,7 @@ common.addBinding(params, 'axes')
 const types = [
   Type.Chessboard,
   Type.Falloff,
+  Type.MultiFalloff,
   Type.Random,
   Type.Noise,
   Type.FBM
@@ -389,7 +441,50 @@ tab.pages[1].addBinding(params.falloff, 'point', {
   }
 })
 
-tab.pages[2]
+const multiPoints: Record<string, Point> = {}
+params.multiFalloff.points.forEach((p, index) => {
+  multiPoints[`point-${index + 1}`] = p
+})
+
+Object.keys(multiPoints).forEach((key) => {
+  tab.pages[2]
+    .addBinding(multiPoints, key, {
+      x: {
+        min: -params.size / 2,
+        max: params.size / 2,
+        step: 1,
+        inverted: true
+      },
+      y: {
+        min: -params.size / 2,
+        max: params.size / 2,
+        step: 1,
+        inverted: true
+      }
+    })
+    .on('change', (e) => {
+      if (e.last) {
+        params.multiFalloff.points = Object.values(multiPoints)
+      }
+    })
+})
+
+// tab.pages[2].addBinding(params.multiFalloff, 'point', {
+//   x: {
+//     min: -params.size / 2,
+//     max: params.size / 2,
+//     step: 1,
+//     inverted: true
+//   },
+//   y: {
+//     min: -params.size / 2,
+//     max: params.size / 2,
+//     step: 1,
+//     inverted: true
+//   }
+// })
+
+tab.pages[3]
   .addButton({
     title: 'random'
   })
@@ -397,43 +492,43 @@ tab.pages[2]
     view.rerender(params)
   })
 
-tab.pages[3].addBinding(params.noise, 'seed', {
+tab.pages[4].addBinding(params.noise, 'seed', {
   min: 0,
   max: 100,
   step: 1
 })
-tab.pages[3].addBinding(params.noise, 'scale', {
+tab.pages[4].addBinding(params.noise, 'scale', {
   min: 0,
   max: 0.1,
   step: 0.001
 })
 
-tab.pages[4].addBinding(params.fbm, 'seed', {
+tab.pages[5].addBinding(params.fbm, 'seed', {
   min: 0,
   max: 100,
   step: 1
 })
-tab.pages[4].addBinding(params.fbm, 'scale', {
+tab.pages[5].addBinding(params.fbm, 'scale', {
   min: 0,
   max: 0.1,
   step: 0.001
 })
-tab.pages[4].addBinding(params.fbm, 'octaves', {
+tab.pages[5].addBinding(params.fbm, 'octaves', {
   min: 1,
   max: 12,
   step: 1
 })
-tab.pages[4].addBinding(params.fbm, 'persistance', {
+tab.pages[5].addBinding(params.fbm, 'persistance', {
   min: 0.1,
   max: 2,
   step: 0.1
 })
-tab.pages[4].addBinding(params.fbm, 'lacunarity', {
+tab.pages[5].addBinding(params.fbm, 'lacunarity', {
   min: 0.1,
   max: 8,
   step: 0.1
 })
-tab.pages[4].addBinding(params.fbm, 'redistribution', {
+tab.pages[5].addBinding(params.fbm, 'redistribution', {
   min: 1,
   max: 8,
   step: 1
