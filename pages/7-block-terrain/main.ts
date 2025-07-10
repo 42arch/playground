@@ -20,8 +20,16 @@ import { OrbitControls } from 'three/examples/jsm/Addons.js'
 import { FBM } from '../../lib/three-noise'
 import { Pane } from 'tweakpane'
 
+const values: number[] = []
+const powValues: number[] = []
+
 function getNoiseValue(fbm: FBM, v: Vector2) {
-  return Math.pow(MathUtils.mapLinear(fbm.get2(v), -1, 1, 0, 1), 2)
+  const value = fbm.get2(v)
+  const mappedValue = MathUtils.mapLinear(value, -1, 1, 0, 1)
+  const powValue = Math.pow(mappedValue, 2)
+  values.push(value)
+  powValues.push(powValue)
+  return powValue
 }
 
 class View {
@@ -342,3 +350,4 @@ class View {
 }
 
 const view = new View('canvas.webgl')
+console.log('values', values, powValues)
