@@ -78,10 +78,13 @@ class Demo {
 
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
-        const elevation = fbm(
-          col / this.cols - 0.5,
-          row / this.rows - 0.5,
-          this.params.elevation
+        const nx = col / this.cols - 0.5
+        const ny = row / this.rows - 0.5
+        const elevation = fbm(nx, ny, this.params.elevation)
+        // const distance = 1 - (1 - Math.pow(nx, 2)) * (1 - Math.pow(ny, 2))
+        const distance = Math.min(
+          1,
+          (Math.pow(nx, 2) + Math.pow(ny, 2)) / Math.sqrt(2)
         )
 
         const realElevation = Math.pow(
@@ -89,11 +92,11 @@ class Demo {
           2
         )
 
-        elevations.push(realElevation)
-        // const r = Math.floor(255 * elevation)
-        // const g = Math.floor(255 * elevation)
-        // const b = Math.floor(255 * elevation)
-        const color = this.assignColor(realElevation)
+        const islandElevation = MathUtils.lerp(realElevation, 1 - distance, 0.5)
+
+        elevations.push(islandElevation)
+
+        const color = this.assignColor(islandElevation)
 
         ctx.fillStyle = color
         ctx.fillRect(
@@ -130,7 +133,7 @@ class Demo {
 
 const params: Params = {
   cellSize: 4,
-  seaLevel: 0.45,
+  seaLevel: 0.18,
   elevation: {
     seed: 1087,
     scale: 1,
@@ -173,7 +176,7 @@ const params: Params = {
       color: '#ffd68f'
     },
     water: {
-      value: 0.42,
+      value: 0.18,
       color: '#00a9ff'
     }
   }
@@ -233,40 +236,6 @@ elevation.addBinding(params.elevation, 'lacunarity', {
   step: 0.01
 })
 elevation.addBinding(params.elevation, 'redistribution', {
-  min: 1,
-  max: 8,
-  step: 1
-})
-
-const moisture = pane.addFolder({
-  title: 'moisture'
-})
-moisture.addBinding(params.moisture, 'seed', {
-  min: 100,
-  max: 6000,
-  step: 1
-})
-moisture.addBinding(params.moisture, 'scale', {
-  min: 0,
-  max: 8,
-  step: 0.01
-})
-moisture.addBinding(params.moisture, 'octaves', {
-  min: 1,
-  max: 12,
-  step: 1
-})
-moisture.addBinding(params.moisture, 'persistance', {
-  min: 0,
-  max: 1,
-  step: 0.01
-})
-moisture.addBinding(params.moisture, 'lacunarity', {
-  min: 1,
-  max: 8,
-  step: 0.01
-})
-moisture.addBinding(params.moisture, 'redistribution', {
   min: 1,
   max: 8,
   step: 1
