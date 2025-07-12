@@ -6,6 +6,7 @@ type Params = {
   cellSize: number
   seaLevel: number
   elevation: NoiseOptions
+  moisture: NoiseOptions
   biomes: {
     [key: string]: {
       value: number
@@ -50,9 +51,9 @@ class Demo {
 
   assignColor(elevation: number) {
     const biomes = this.params.biomes
-    const seaLevel = this.params.seaLevel
+    const seaLevel = biomes.water.value
 
-    if (elevation <= this.params.seaLevel) {
+    if (elevation <= seaLevel) {
       return biomes['water'].color
     } else if (elevation <= seaLevel + biomes['shore'].value) {
       return biomes['shore'].color
@@ -78,8 +79,8 @@ class Demo {
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
         const elevation = fbm(
-          col / this.cols,
-          row / this.rows,
+          col / this.cols - 0.5,
+          row / this.rows - 0.5,
           this.params.elevation
         )
 
@@ -88,7 +89,7 @@ class Demo {
           2
         )
 
-        elevations.push(elevation)
+        elevations.push(realElevation)
         // const r = Math.floor(255 * elevation)
         // const g = Math.floor(255 * elevation)
         // const b = Math.floor(255 * elevation)
@@ -132,6 +133,14 @@ const params: Params = {
   seaLevel: 0.45,
   elevation: {
     seed: 1087,
+    scale: 1,
+    octaves: 6,
+    persistance: 0.6,
+    lacunarity: 2,
+    redistribution: 1
+  },
+  moisture: {
+    seed: 753,
     scale: 1,
     octaves: 6,
     persistance: 0.5,
@@ -183,11 +192,17 @@ pane.addBinding(params, 'cellSize', {
   max: 10,
   step: 1
 })
-pane.addBinding(params, 'seaLevel', {
-  min: 0,
-  max: 1,
-  step: 0.01
-})
+pane
+  .addBinding(params, 'seaLevel', {
+    min: 0,
+    max: 1,
+    step: 0.01
+  })
+  .on('change', (e) => {
+    if (e.last) {
+      params.biomes.water.value = e.value * 0.6
+    }
+  })
 
 const elevation = pane.addFolder({
   title: 'elevation'
@@ -218,7 +233,41 @@ elevation.addBinding(params.elevation, 'lacunarity', {
   step: 0.01
 })
 elevation.addBinding(params.elevation, 'redistribution', {
+  min: 1,
+  max: 8,
+  step: 1
+})
+
+const moisture = pane.addFolder({
+  title: 'moisture'
+})
+moisture.addBinding(params.moisture, 'seed', {
+  min: 100,
+  max: 6000,
+  step: 1
+})
+moisture.addBinding(params.moisture, 'scale', {
   min: 0,
+  max: 8,
+  step: 0.01
+})
+moisture.addBinding(params.moisture, 'octaves', {
+  min: 1,
+  max: 12,
+  step: 1
+})
+moisture.addBinding(params.moisture, 'persistance', {
+  min: 0,
+  max: 1,
+  step: 0.01
+})
+moisture.addBinding(params.moisture, 'lacunarity', {
+  min: 1,
+  max: 8,
+  step: 0.01
+})
+moisture.addBinding(params.moisture, 'redistribution', {
+  min: 1,
   max: 8,
   step: 1
 })
