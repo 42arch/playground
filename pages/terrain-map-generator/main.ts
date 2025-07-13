@@ -6,6 +6,7 @@ type Params = {
   cellSize: number
   seaLevel: number
   elevation: NoiseOptions
+  moisture: NoiseOptions
   biomes: {
     [key: string]: {
       value: number
@@ -50,9 +51,9 @@ class Demo {
 
   assignColor(elevation: number) {
     const biomes = this.params.biomes
-    const seaLevel = this.params.seaLevel
+    const seaLevel = biomes.water.value
 
-    if (elevation <= this.params.seaLevel) {
+    if (elevation <= seaLevel) {
       return biomes['water'].color
     } else if (elevation <= seaLevel + biomes['shore'].value) {
       return biomes['shore'].color
@@ -77,10 +78,13 @@ class Demo {
 
     for (let row = 0; row < this.rows; row++) {
       for (let col = 0; col < this.cols; col++) {
-        const elevation = fbm(
-          col / this.cols,
-          row / this.rows,
-          this.params.elevation
+        const nx = col / this.cols - 0.5
+        const ny = row / this.rows - 0.5
+        const elevation = fbm(nx, ny, this.params.elevation)
+        // const distance = 1 - (1 - Math.pow(nx, 2)) * (1 - Math.pow(ny, 2))
+        const distance = Math.min(
+          1,
+          (Math.pow(nx, 2) + Math.pow(ny, 2)) / Math.sqrt(2)
         )
 
         const realElevation = Math.pow(
@@ -88,11 +92,11 @@ class Demo {
           2
         )
 
-        elevations.push(elevation)
-        // const r = Math.floor(255 * elevation)
-        // const g = Math.floor(255 * elevation)
-        // const b = Math.floor(255 * elevation)
-        const color = this.assignColor(realElevation)
+        const islandElevation = MathUtils.lerp(realElevation, 1 - distance, 0.5)
+
+        elevations.push(islandElevation)
+
+        const color = this.assignColor(islandElevation)
 
         ctx.fillStyle = color
         ctx.fillRect(
@@ -129,9 +133,17 @@ class Demo {
 
 const params: Params = {
   cellSize: 4,
-  seaLevel: 0.45,
+  seaLevel: 0.18,
   elevation: {
     seed: 1087,
+    scale: 1,
+    octaves: 6,
+    persistance: 0.6,
+    lacunarity: 2,
+    redistribution: 1
+  },
+  moisture: {
+    seed: 753,
     scale: 1,
     octaves: 6,
     persistance: 0.5,
@@ -164,7 +176,7 @@ const params: Params = {
       color: '#ffd68f'
     },
     water: {
-      value: 0.42,
+      value: 0.18,
       color: '#00a9ff'
     }
   }
@@ -183,11 +195,17 @@ pane.addBinding(params, 'cellSize', {
   max: 10,
   step: 1
 })
-pane.addBinding(params, 'seaLevel', {
-  min: 0,
-  max: 1,
-  step: 0.01
-})
+pane
+  .addBinding(params, 'seaLevel', {
+    min: 0,
+    max: 1,
+    step: 0.01
+  })
+  .on('change', (e) => {
+    if (e.last) {
+      params.biomes.water.value = e.value * 0.6
+    }
+  })
 
 const elevation = pane.addFolder({
   title: 'elevation'
@@ -218,7 +236,7 @@ elevation.addBinding(params.elevation, 'lacunarity', {
   step: 0.01
 })
 elevation.addBinding(params.elevation, 'redistribution', {
-  min: 0,
+  min: 1,
   max: 8,
   step: 1
 })

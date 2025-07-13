@@ -281,6 +281,9 @@ class FBM {
       )
 
       const noiseVal = noiseFunction(position)
+
+      // console.log('noise val', noiseVal)
+
       result += noiseVal * amplitude
 
       frequency *= this._lacunarity
@@ -289,6 +292,7 @@ class FBM {
     }
 
     const redistributed = Math.pow(result, this._redistribution)
+    // console.log('redistributed', result, redistributed, redistributed / max)
     return redistributed / max
   }
 

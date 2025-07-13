@@ -55,6 +55,7 @@ class View {
     }
     generation: {
       seed: number
+      seaLevel: number
       height: number
       scale: number
       detail: number
@@ -122,6 +123,7 @@ class View {
       generation: {
         seed: Math.random(),
         height: 0.8,
+        seaLevel: 0.12,
         scale: 0.3,
         detail: 0.5,
         fuzzyness: 0.2,
@@ -223,7 +225,8 @@ class View {
   }
 
   generate() {
-    console.log('params', this.params)
+    // console.log('params', this.params)
+    this.params.colors.water.value = this.params.generation.seaLevel / 2
     if (this.terrain) {
       this.scene.remove(this.terrain)
       this.terrain = undefined
@@ -271,11 +274,19 @@ class View {
     surface.map((point, i) => {
       const scaledVector = point.clone().multiplyScalar(scale * generationScale)
       const realHeight = getNoiseValue(fbm, scaledVector) * generationHeight
+      let visibleHeight = realHeight
+
+      if (
+        !this.params.display.heightMap &&
+        realHeight < this.params.colors.water.value
+      ) {
+        visibleHeight = this.params.colors.water.value
+      }
 
       const color = this.getColor(realHeight)
       const x = point.x,
         y = point.y,
-        z = realHeight * 30
+        z = visibleHeight * 30
 
       emptyObject.position.set(x, y, z)
       emptyObject.updateMatrix()
