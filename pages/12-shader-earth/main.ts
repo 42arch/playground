@@ -9,6 +9,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
+  PointLight,
   Scene,
   ShaderMaterial,
   SphereGeometry,
@@ -19,7 +20,7 @@ import {
   Vector3,
   WebGLRenderer
 } from 'three'
-import { OrbitControls } from 'three/examples/jsm/Addons.js'
+import { Lensflare, LensflareElement, OrbitControls } from 'three/examples/jsm/Addons.js'
 import { Pane } from 'tweakpane'
 import earthVertex from './shaders/earth/vertex.glsl'
 import earthFragment from './shaders/earth/fragment.glsl'
@@ -38,7 +39,8 @@ class View {
   private clock: Clock
 
   private sunSpherical: Spherical | null
-  private sun: Mesh | null = null
+  // private sun: Mesh | null = null
+  private sun: PointLight | null = null
   private earth: Mesh<SphereGeometry, ShaderMaterial> | null = null
   private atomsphere: Mesh<SphereGeometry, ShaderMaterial> | null = null
 
@@ -190,10 +192,18 @@ class View {
     // sun
     this.sunSpherical = new Spherical(1, Math.PI * 0.5, 0.5)
 
-    this.sun = new Mesh(
-      new IcosahedronGeometry(0.1, 2),
-      new MeshBasicMaterial()
-    )
+    // this.sun = new Mesh(
+    //   new IcosahedronGeometry(0.1, 2),
+    //   new MeshBasicMaterial()
+    // )
+
+    const textureFlare0 = textureLoader.load('./textures/lensflare0_alpha.png')
+    const textureFlare3 = textureLoader.load('./textures/lensflare3.png')
+    this.sun = new PointLight(0xffffff, 1.5, 100)
+    const lensflare = new Lensflare()
+    lensflare.addElement(new LensflareElement(textureFlare0, 50, -0.1, new Color(0xffffff)))
+    lensflare.addElement(new LensflareElement(textureFlare3, 30, 0.5))
+    this.sun?.add(lensflare)
     this.group.add(this.sun)
     this.updateSun()
   }
@@ -201,7 +211,7 @@ class View {
   updateSun() {
     const sunDirection = new Vector3()
     sunDirection.setFromSpherical(this.sunSpherical!)
-    this.sun?.position.copy(sunDirection).multiplyScalar(5)
+    this.sun?.position.copy(sunDirection).multiplyScalar(50)
     this.earth?.material.uniforms.uSunDirection.value.copy(sunDirection)
     this.atomsphere?.material.uniforms.uSunDirection.value.copy(sunDirection)
     this.earth?.material.uniforms.uAtomsphereDayColor.value.set(
