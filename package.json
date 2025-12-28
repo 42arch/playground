@@ -36,7 +36,7 @@
     "poisson-disk-sampling": "^2.3.1",
     "satellite.js": "^5.0.0",
     "simplex-noise": "^4.0.3",
-    "three": "^0.170.0",
+    "three": "^0.182.0",
     "three-forcegraph": "^1.42.12",
     "tweakpane": "^4.0.5"
   }

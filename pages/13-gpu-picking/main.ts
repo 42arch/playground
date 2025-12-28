@@ -1,26 +1,29 @@
+import * as THREE from 'three'
 import {
   AmbientLight,
   BoxGeometry,
   Clock,
   Color,
+  Euler,
   Group,
-  LinearSRGBColorSpace,
-  Mesh,
+  InstancedMesh,
+  Matrix4,
   MeshBasicMaterial,
   MeshPhongMaterial,
   NearestFilter,
-  NoColorSpace,
   PerspectiveCamera,
   PointLight,
   RGBAFormat,
   Scene,
   Vector2,
+  Vector3,
   WebGLRenderer,
   WebGLRenderTarget
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/Addons.js'
 import { Pane } from 'tweakpane'
-import * as THREE from 'three'
+
+// 核心优化：禁用色彩管理，防止 ID 颜色因 Gamma 校正而漂移
 THREE.ColorManagement.enabled = false
 
 class View {
@@ -36,47 +39,46 @@ class View {
 
   private group: Group
   private pickingGroup: Group
-
-  private params: {
-    rotate: boolean
-  }
-
   private pickingScene: Scene = new Scene()
   private pickingRenderTarget: WebGLRenderTarget
-  private idToMesh: Map<number, Mesh> = new Map() // ID到原始Mesh的映射
+
+  private instancedMesh: InstancedMesh | null = null
+  private pickingInstancedMesh: InstancedMesh | null = null
+
+  private params: {
+    rotate: boolean,
+    count: number,
+    dist: number
+  }
+
   private mouse: Vector2 = new Vector2(-1, -1)
-  private lastPickedMesh: Mesh | null = null
+  private lastPickedInstanceId: number | null = null
+  private lastPickedOriginalColor: Color = new Color()
 
   constructor(element: string) {
     this.canvas = document.querySelector(element) as HTMLElement
     this.width = window.innerWidth
     this.height = window.innerHeight
     this.pixelRatio = Math.min(window.devicePixelRatio, 2)
+    
     this.scene = new Scene()
-    this.camera = new PerspectiveCamera(
-      75,
-      this.width / this.height,
-      0.001,
-      1000
-    )
-    this.camera.position.set(5, 5, 5)
-    this.scene.add(this.camera)
+    this.camera = new PerspectiveCamera(75, this.width / this.height, 0.1, 1000)
+    this.camera.position.set(20, 20, 20)
+
     this.renderer = new WebGLRenderer({
       canvas: this.canvas,
       antialias: true
     })
-
     this.renderer.setSize(this.width, this.height)
     this.renderer.setPixelRatio(this.pixelRatio)
 
-    // 初始化离屏渲染目标
-    this.pickingRenderTarget = new WebGLRenderTarget(this.width, this.height, {
+    // 初始化 1x1 离屏渲染目标，极致性能
+    this.pickingRenderTarget = new WebGLRenderTarget(1, 1, {
       generateMipmaps: false,
       minFilter: NearestFilter,
       magFilter: NearestFilter,
       format: RGBAFormat
     })
-    this.pickingRenderTarget.texture.colorSpace = LinearSRGBColorSpace
 
     this.controls = new OrbitControls(this.camera, this.canvas)
     this.controls.enableDamping = true
@@ -84,9 +86,13 @@ class View {
 
     this.group = new Group()
     this.pickingGroup = new Group()
+    this.scene.add(this.group)
+    this.pickingScene.add(this.pickingGroup)
 
     this.params = {
-      rotate: false
+      rotate: true,
+      count: 5000,
+      dist: 30
     }
 
     this.addLights()
@@ -97,123 +103,105 @@ class View {
     this.addPane()
   }
 
-  resize() {
-    window.addEventListener('resize', () => {
-      this.width = window.innerWidth
-      this.height = window.innerHeight
-      this.camera.aspect = this.width / this.height
-      this.camera.updateProjectionMatrix()
-      this.renderer.setSize(this.width, this.height)
-      this.pickingRenderTarget.setSize(this.width, this.height)
-    })
-  }
-
-  animate() {
-    const delta = this.clock.getDelta()
-
-    if (this.params.rotate) {
-      this.group.rotation.y += delta / 2
-      // 重要：拾取场景必须与视觉场景同步运动
-      this.pickingGroup.rotation.y = this.group.rotation.y
-    }
-
-    this.pick()
-    this.renderer.render(this.scene, this.camera)
-    this.controls.update()
-    window.requestAnimationFrame(this.animate.bind(this))
-  }
-
-  addLights() {
-    const ambient = new AmbientLight(0xffffff, 0.5)
+  private addLights() {
+    const ambient = new AmbientLight(0xffffff, 0.6)
     this.scene.add(ambient)
-    const point = new PointLight(0xffffff, 100)
-    point.position.set(5, 5, 5)
+    const point = new PointLight(0xffffff, 500)
+    point.position.set(20, 20, 20)
     this.scene.add(point)
   }
 
-  addGroup() {
-    this.scene.add(this.group)
-    this.pickingScene.add(this.pickingGroup)
-    const geometry = new BoxGeometry(0.2, 0.2, 0.2)
-
-    for (let i = 1; i <= 1000; i++) {
-      // 1. 创建视觉场景的物体
-      const material = new MeshPhongMaterial({
-        color: new Color().setHSL(Math.random(), 0.7, 0.5)
-      })
-      const mesh = new Mesh(geometry, material)
-      mesh.position.set(
-        (Math.random() - 0.5) * 8,
-        (Math.random() - 0.5) * 8,
-        (Math.random() - 0.5) * 8
-      )
-      mesh.rotation.set(Math.random(), Math.random(), Math.random())
-      this.group.add(mesh)
-
-      const pickingColor = new Color()
-      // 关键：直接操作 hex，避开颜色空间转换
-      pickingColor.setHex(i, NoColorSpace)
-
-      // 2. 创建拾取场景的“影子”物体
-      const pickingMaterial = new MeshBasicMaterial({
-        color: pickingColor,
-        transparent: false,
-        opacity: 1,
-        fog: false // 禁用雾化，防止颜色偏移
-      })
-      const pickingMesh = new Mesh(geometry, pickingMaterial)
-      pickingMesh.position.copy(mesh.position)
-      pickingMesh.rotation.copy(mesh.rotation)
-      this.pickingGroup.add(pickingMesh)
-
-      this.idToMesh.set(i, mesh)
+  private addGroup() {
+    // 1. 清理资源
+    if (this.instancedMesh) {
+      this.group.remove(this.instancedMesh)
+      this.pickingGroup.remove(this.pickingInstancedMesh!)
+      this.instancedMesh.geometry.dispose()
+      ;(this.instancedMesh.material as THREE.Material).dispose()
+      ;(this.pickingInstancedMesh!.material as THREE.Material).dispose()
     }
+
+    const geometry = new BoxGeometry(0.5, 0.5, 0.5)
+
+    // 2. 视觉网格：不要设置 vertexColors: true
+    const material = new MeshPhongMaterial({ color: 0xffffff })
+    this.instancedMesh = new InstancedMesh(geometry, material, this.params.count)
+    this.group.add(this.instancedMesh)
+
+    // 3. 拾取网格：同样不设置 vertexColors
+    const pickingMaterial = new MeshBasicMaterial()
+    this.pickingInstancedMesh = new InstancedMesh(geometry, pickingMaterial, this.params.count)
+    this.pickingGroup.add(this.pickingInstancedMesh)
+
+    const matrix = new Matrix4()
+    const color = new Color()
+
+    for (let i = 0; i < this.params.count; i++) {
+      const position = new Vector3(
+        (Math.random() - 0.5) * this.params.dist,
+        (Math.random() - 0.5) * this.params.dist,
+        (Math.random() - 0.5) * this.params.dist
+      )
+      const rotation = new Euler(Math.random(), Math.random(), Math.random())
+      matrix.makeRotationFromEuler(rotation)
+      matrix.setPosition(position)
+
+      this.instancedMesh.setMatrixAt(i, matrix)
+      this.pickingInstancedMesh.setMatrixAt(i, matrix)
+
+      // 视觉颜色
+      color.setHSL(Math.random(), 0.8, 0.5)
+      this.instancedMesh.setColorAt(i, color)
+
+      // 拾取 ID 颜色 (i+1)
+      const idColor = new Color().setHex(i + 1)
+      this.pickingInstancedMesh.setColorAt(i, idColor)
+    }
+
+    this.instancedMesh.instanceColor!.needsUpdate = true
+    this.pickingInstancedMesh.instanceColor!.needsUpdate = true
   }
 
-  // 拾取函数
   private pick() {
-    if (this.mouse.x === -1) return
-    // 1. 优化：设置相机偏移，只渲染鼠标指针下的 1x1 像素区域
-    // 这样 GPU 只需要跑 1 个像素的片元着色器，速度极快
+    if (this.mouse.x === -1 || !this.instancedMesh) return
+
+    // 1. 设置相机偏移，只看鼠标下 1x1 的区域
+    // 关键：不乘以 pixelRatio，setViewOffset 内部会自动处理
     this.camera.setViewOffset(
-      this.width,
-      this.height,
-      this.mouse.x * this.pixelRatio,
-      this.mouse.y * this.pixelRatio,
-      1,
-      1
+      this.width, this.height,
+      this.mouse.x, this.mouse.y,
+      1, 1
     )
 
-    // 2. 渲染拾取场景到离屏 RenderTarget
+    // 2. 渲染到 1x1 RenderTarget
     this.renderer.setRenderTarget(this.pickingRenderTarget)
     this.renderer.render(this.pickingScene, this.camera)
 
-    // 3. 读取该像素的颜色
+    // 3. 读取该像素颜色
     const pixelBuffer = new Uint8Array(4)
-    this.renderer.readRenderTargetPixels(
-      this.pickingRenderTarget,
-      0,
-      0,
-      1,
-      1,
-      pixelBuffer
-    )
+    this.renderer.readRenderTargetPixels(this.pickingRenderTarget, 0, 0, 1, 1, pixelBuffer)
 
-    // 4. 将 RGB 还原为 ID (与 Three.js Color 的 setHex 逻辑一致)
+    // 4. 解析 ID 并转换回 instanceId
     const id = (pixelBuffer[0] << 16) | (pixelBuffer[1] << 8) | pixelBuffer[2]
+    const instanceId = id - 1
 
-    console.log('picked id', id)
+    // 5. 交互逻辑
+    if (instanceId !== this.lastPickedInstanceId) {
+      // 恢复旧色
+      if (this.lastPickedInstanceId !== null) {
+        this.instancedMesh.setColorAt(this.lastPickedInstanceId, this.lastPickedOriginalColor)
+      }
 
-    // 5. 5. 交互逻辑
-    const mesh = this.idToMesh.get(id)
-    // 恢复上一个物体的颜色
-    if (this.lastPickedMesh) {
-      this.lastPickedMesh.material.emissive?.set(0x000000)
-    }
-    if (mesh) {
-      // 高亮当前物体
-      ;(mesh.material as MeshPhongMaterial).emissive.set(0xff0000)
-      this.lastPickedMesh = mesh
+      // 高亮新色
+      if (instanceId >= 0 && instanceId < this.params.count) {
+        this.instancedMesh.getColorAt(instanceId, this.lastPickedOriginalColor)
+        this.instancedMesh.setColorAt(instanceId, new Color(0xffffff)) // 白色高亮
+        this.lastPickedInstanceId = instanceId
+      } else {
+        this.lastPickedInstanceId = null
+      }
+
+      this.instancedMesh.instanceColor!.needsUpdate = true
     }
 
     // 6. 重置状态
@@ -223,14 +211,44 @@ class View {
 
   private addEventListeners() {
     window.addEventListener('pointermove', (e) => {
-      this.mouse.x = e.clientX
-      this.mouse.y = e.clientY
+      // 获取 Canvas 相对视口的坐标，解决非全屏下的偏移问题
+      const rect = this.canvas.getBoundingClientRect()
+      this.mouse.x = e.clientX - rect.left
+      this.mouse.y = e.clientY - rect.top
     })
   }
 
-  addPane() {
-    const pane = new Pane({
-      title: 'GPU Picking'
+  private resize() {
+    window.addEventListener('resize', () => {
+      this.width = window.innerWidth
+      this.height = window.innerHeight
+      this.camera.aspect = this.width / this.height
+      this.camera.updateProjectionMatrix()
+      this.renderer.setSize(this.width, this.height)
+    })
+  }
+
+  private animate() {
+    const delta = this.clock.getDelta()
+
+    if (this.params.rotate) {
+      this.group.rotation.y += delta * 0.1
+      this.pickingGroup.rotation.y = this.group.rotation.y
+    }
+
+    this.pick()
+    this.renderer.render(this.scene, this.camera)
+    this.controls.update()
+    window.requestAnimationFrame(this.animate.bind(this))
+  }
+
+  private addPane() {
+    const pane = new Pane({ title: 'GPU Picking Optimized' })
+    pane.addBinding(this.params, 'count', { min: 100, max: 20000, step: 100 }).on('change', (e) => {
+      if (e.last) this.addGroup()
+    })
+    pane.addBinding(this.params, 'dist', { min: 20, max: 100, step: 1 }).on('change', (e) => {
+      if (e.last) this.addGroup()
     })
     pane.addBinding(this.params, 'rotate')
   }
