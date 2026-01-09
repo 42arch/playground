@@ -1,18 +1,72 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link rel="stylesheet" href="/style.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Playground</title>
+    <title>3D Playground</title>
+    <meta
+      name="description"
+      content="A collection of WebGL and Three.js experiments and demos."
+    />
+    <link rel="stylesheet" href="/style.css" />
+    <!-- <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    /> -->
   </head>
   <body>
     <div id="app">
-      <h1 class="title">Playground</h1>
-      <div class="pages-grid">
-        <!-- 页面项目将通过 JavaScript 动态添加 -->
-      </div>
+      <header class="site-header">
+        <div class="container">
+          <div class="logo">
+            <img src="/vite.svg" alt="Logo" width="24" height="24" />
+            <span>Playground</span>
+          </div>
+          <nav class="site-nav">
+            <!-- Placeholder for future links -->
+            <a
+              href="https://github.com/42arch/playground"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="github-link"
+            >
+              GitHub
+            </a>
+          </nav>
+        </div>
+      </header>
+
+      <main class="site-main">
+        <section class="hero">
+          <div class="container">
+            <h1 class="hero-title">
+              WebGL & Three.js <br />
+              Experiments
+            </h1>
+            <p class="hero-subtitle">
+              A curated collection of graphical demos, shader effects, and
+              interactive 3D visualizations.
+            </p>
+          </div>
+        </section>
+
+        <section class="projects-section">
+          <div class="container">
+            <div class="pages-grid" id="pages-grid">
+              <!-- Projects will be injected here via main.ts -->
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container">
+          <p>&copy; 2026 Playground. Built with Three.js & Vite.</p>
+        </div>
+      </footer>
     </div>
     <script type="module" src="/main.ts"></script>
   </body>

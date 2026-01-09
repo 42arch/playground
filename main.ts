@@ -67,18 +67,22 @@ const pages: PageInfo[] = [
 ]
 
 function createPageCard(page: PageInfo): HTMLElement {
-  const card = document.createElement('div')
+  const card = document.createElement('a')
   card.className = 'page-card'
+  card.href = page.url
 
   card.innerHTML = `
-    <img src="${page.image}" alt="${page.name}">
-    <h2>${page.name}</h2>
-    <p>${page.description}</p>
+    <div class="card-image-wrapper">
+      <img src="${page.image}" alt="${page.name}" loading="lazy">
+    </div>
+    <div class="card-content">
+      <h2 class="card-title">${page.name}</h2>
+      <p class="card-description">${page.description}</p>
+      <div class="card-arrow">
+        View Demo <span>&rarr;</span>
+      </div>
+    </div>
   `
-
-  card.addEventListener('click', () => {
-    window.location.href = page.url
-  })
 
   return card
 }
@@ -93,5 +97,5 @@ function initializePages() {
   })
 }
 
-// 当 DOM 加载完成后初始化页面
+// Initialize pages when DOM is loaded
 document.addEventListener('DOMContentLoaded', initializePages)
