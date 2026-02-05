@@ -1,83 +1,154 @@
 interface PageInfo {
   name: string
   description: string
-  image: string
   url: string
+  tags?: string[]
+  featured?: boolean
+  ai?: boolean
 }
 
 const pages: PageInfo[] = [
   {
     name: 'Model Animation',
     description:
-      'This example demonstrates how a model moves along a specified path and how to play animations.',
-    image: '/cover/1.png',
-    url: '/pages/1-model-animation/index.html'
+      'Demonstrates model movement along paths and animation playback.',
+    url: '/pages/1-model-animation/index.html',
+    tags: ['Three.js', 'Animation', 'GLTF'],
+    featured: true
   },
   {
-    name: '3D Glob',
+    name: '3D Blob',
     description:
-      'This example shows how to create a 3D glob using Berlin noise with shaders.',
-    image: '/cover/2.png',
-    url: '/pages/2-3d-blob/index.html'
+      'Organic 3D shape creation using Perlin noise and custom shaders.',
+    url: '/pages/2-3d-blob/index.html',
+    tags: ['Three.js', 'Shader', 'Noise'],
+    featured: true
   },
   {
     name: 'Earth',
-    description: 'Create a Earth using three.js.',
-    image: '/cover/3.png',
-    url: '/pages/3-earth/index.html'
+    description:
+      'Realistic Earth visualization with texture mapping and lighting.',
+    url: '/pages/3-earth/index.html',
+    tags: ['Three.js', 'Globe', 'Texture']
   },
   {
     name: 'Globe',
-    description: 'Display latitude and longitude coordinates on the Earth.',
-    image: '/cover/4.png',
-    url: '/pages/4-globe/index.html'
+    description:
+      'Interactive globe displaying geographic coordinates and data points.',
+    url: '/pages/4-globe/index.html',
+    tags: ['Three.js', 'Globe', 'Data Viz']
   },
   {
     name: 'Shaders',
-    description: 'Special effects ported from ShaderToy.',
-    image: '/cover/5.png',
-    url: '/pages/5-shaders/index.html'
+    description: 'Collection of advanced visual effects ported from ShaderToy.',
+    url: '/pages/5-shaders/index.html',
+    tags: ['Three.js', 'Shader', 'ShaderToy']
   },
   {
     name: 'Procedural Terrain',
-    description: 'Procedurally generated terrain based on Berlin Noise.',
-    image: '/cover/6.png',
-    url: '/pages/6-procedural-terrain/index.html'
+    description:
+      'Dynamic terrain generation using noise algorithms and heightmaps.',
+    url: '/pages/6-procedural-terrain/index.html',
+    tags: ['Three.js', 'Terrain', 'Noise']
   },
   {
     name: 'Block Terrain',
-    description:
-      'Terrain generated with the Fractal Brownian Motion (FBM) algorithm using square blocks.',
-    image: '/cover/7.png',
-    url: '/pages/7-block-terrain/index.html'
+    description: 'Voxel-style terrain generated with Fractal Brownian Motion.',
+    url: '/pages/7-block-terrain/index.html',
+    tags: ['Three.js', 'Terrain', 'Voxel'],
+    featured: true
   },
   {
     name: '3D Force Layout',
-    description: 'The 3D force-directed graph',
-    image: '/cover/8.png',
-    url: '/pages/8-3d-force-layout/index.html'
+    description:
+      'Dynamic 3D force-directed graph for complex relationship visualization.',
+    url: '/pages/8-3d-force-layout/index.html',
+    tags: ['Three.js', 'Graph', 'Force-Directed'],
+    featured: true
   },
   {
     name: 'Multiple Views',
     description:
-      'Display different views from multiple perspectives in one renderer',
-    image: '/cover/9.png',
-    url: '/pages/9-multiple-views/index.html'
+      'Simultaneous rendering of different perspectives in a single scene.',
+    url: '/pages/9-multiple-views/index.html',
+    tags: ['Three.js', 'Camera', 'Viewport']
+  },
+  {
+    name: 'Grayscale Shaders',
+    description:
+      'Procedural grayscale textures including chessboard, noise, and FBM.',
+    url: '/pages/10-grayscale/index.html',
+    tags: ['Three.js', 'Shader', 'Noise']
+  },
+  {
+    name: 'Voronoi Algorithm',
+    description:
+      'Interactive visualization of Voronoi diagrams and Delaunay triangulation.',
+    url: '/pages/11-voronoi-demo/index.html',
+    tags: ['Canvas', 'Algorithm', 'Geometry']
+  },
+  {
+    name: 'Atmospheric Earth',
+    description:
+      'Advanced Earth with day/night cycles and atmospheric scattering.',
+    url: '/pages/12-shader-earth/index.html',
+    tags: ['Three.js', 'Shader', 'Atmosphere'],
+    featured: true
+  },
+  {
+    name: 'GPU Picking',
+    description:
+      'High-performance object selection using GPU-based color ID mapping.',
+    url: '/pages/13-gpu-picking/index.html',
+    tags: ['Three.js', 'Performance', 'Interaction']
+  },
+  {
+    name: 'Map Generator',
+    description:
+      'Procedural island maps with elevation, moisture, and river systems.',
+    url: '/pages/14-mapgen-webgl-demo/index.html',
+    tags: ['OGL', 'Terrain', 'Procedural'],
+    featured: true
+  },
+  {
+    name: 'Building Explode',
+    description:
+      'Interactive 3D building with layering, explode effects, and floor selection.',
+    url: '/pages/15-building-explode-effect/index.html',
+    tags: ['Three.js', 'Building', 'Interaction'],
+    featured: true
   }
 ]
 
 function createPageCard(page: PageInfo): HTMLElement {
   const card = document.createElement('a')
-  card.className = 'page-card'
+  card.className = `page-card ${page.featured ? 'featured' : ''}`
   card.href = page.url
 
+  const tagsHtml = page.tags
+    ? page.tags
+        .map(
+          (tag, index) =>
+            `<span class="tag ${index === 0 ? 'tech-tag' : ''}">${tag}</span>`
+        )
+        .join('')
+    : ''
+  const featuredBadge = page.featured
+    ? '<span class="featured-badge">Featured</span>'
+    : ''
+  const aiBadge = page.ai ? '<span class="ai-badge">AI</span>' : ''
+
   card.innerHTML = `
-    <div class="card-image-wrapper">
-      <img src="${page.image}" alt="${page.name}" loading="lazy">
-    </div>
     <div class="card-content">
-      <h2 class="card-title">${page.name}</h2>
+      <div class="card-header">
+        <h2 class="card-title">${page.name}</h2>
+        <div class="badge-container">
+          ${aiBadge}
+          ${featuredBadge}
+        </div>
+      </div>
       <p class="card-description">${page.description}</p>
+      <div class="card-tags">${tagsHtml}</div>
       <div class="card-arrow">
         View Demo <span>&rarr;</span>
       </div>
@@ -87,14 +158,55 @@ function createPageCard(page: PageInfo): HTMLElement {
   return card
 }
 
-function initializePages() {
+function renderPages(
+  filterFeatured: boolean = false,
+  filterAi: boolean = false
+) {
   const pagesGrid = document.querySelector('.pages-grid')
   if (!pagesGrid) return
 
-  pages.forEach((page) => {
+  pagesGrid.innerHTML = ''
+
+  let filteredPages = pages
+
+  if (filterFeatured) {
+    filteredPages = filteredPages.filter((page) => page.featured)
+  }
+
+  if (filterAi) {
+    filteredPages = filteredPages.filter((page) => page.ai)
+  }
+
+  filteredPages.forEach((page) => {
     const card = createPageCard(page)
     pagesGrid.appendChild(card)
   })
+}
+
+function initializePages() {
+  const filterFeaturedToggle = document.getElementById(
+    'featured-filter'
+  ) as HTMLInputElement
+  const filterAiToggle = document.getElementById(
+    'ai-filter'
+  ) as HTMLInputElement
+
+  const handleChange = () => {
+    renderPages(filterFeaturedToggle?.checked, filterAiToggle?.checked)
+  }
+
+  if (filterFeaturedToggle) {
+    filterFeaturedToggle.addEventListener('change', handleChange)
+  }
+
+  if (filterAiToggle) {
+    filterAiToggle.addEventListener('change', handleChange)
+  }
+
+  renderPages(
+    filterFeaturedToggle?.checked || false,
+    filterAiToggle?.checked || false
+  )
 }
 
 // Initialize pages when DOM is loaded

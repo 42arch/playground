@@ -21,13 +21,13 @@ import {
 } from 'three/examples/jsm/Addons.js'
 
 const PARAMS = {
-  displacement: 1,
-  wireframe: false,
+  displacement: 2.7,
+  wireframe: true,
   color: 0xccbb1f,
   opacity: 0.6,
-  strength: 2,
+  strength: 0.65,
   threshold: 0,
-  radius: 0.8
+  radius: 0.54
 }
 
 function init() {
@@ -70,6 +70,7 @@ function init() {
           value: 0
         }
       },
+      wireframe: PARAMS.wireframe,
       vertexShader: vertex,
       fragmentShader: fragment
     })

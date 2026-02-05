@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -55,6 +55,22 @@
 
         <section class="projects-section">
           <div class="container">
+            <div class="filter-controls">
+              <label class="switch-container">
+                <span class="switch-label">AI Only</span>
+                <div class="switch">
+                  <input type="checkbox" id="ai-filter" />
+                  <span class="slider round"></span>
+                </div>
+              </label>
+              <label class="switch-container">
+                <span class="switch-label">Featured Only</span>
+                <div class="switch">
+                  <input type="checkbox" id="featured-filter" />
+                  <span class="slider round"></span>
+                </div>
+              </label>
+            </div>
             <div class="pages-grid" id="pages-grid">
               <!-- Projects will be injected here via main.ts -->
             </div>
