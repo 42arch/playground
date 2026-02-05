@@ -38,6 +38,7 @@
     "simplex-noise": "^4.0.3",
     "three": "^0.182.0",
     "three-forcegraph": "^1.42.12",
-    "tweakpane": "^4.0.5"
+    "tweakpane": "^4.0.5",
+    "tweakpane-plugin-infodump": "^4.0.2"
   }
 }
