@@ -1,5 +1,4 @@
-import { Mesh } from 'three'
-import { MeshPoint } from '../types'
+import { MeshPoint, Polygon } from '../types'
 import { Delaunay, Voronoi } from 'd3-delaunay'
 
 export default class DualMesh {
@@ -22,7 +21,10 @@ export default class DualMesh {
   public _triangles: Uint32Array | Int32Array
 
   private readonly _voronoi: Voronoi<MeshPoint>
-  private readonly _delaunay: Delaunay<Mesh>
+  private readonly _delaunay: Delaunay<MeshPoint>
+
+  // custom
+  public polygons: Polygon[]
 
   constructor(points: MeshPoint[], width: number, height: number) {
     this.numRegions = points.length
@@ -35,7 +37,7 @@ export default class DualMesh {
       this.r_y[i] = points[i].y
     }
 
-    const delaunay = Delaunay.from(
+    const delaunay = Delaunay.from<MeshPoint>(
       points,
       (d) => d.x,
       (d) => d.y
@@ -53,6 +55,20 @@ export default class DualMesh {
 
     this.t_x = new Float32Array(this.numTriangles)
     this.t_y = new Float32Array(this.numTriangles)
+
+    this.polygons = points.map((_, i) => {
+      const poly = voronoi.cellPolygon(i)
+      const vertex = poly ? poly.slice(0, -1).map(([x, y]) => ({ x, y })) : []
+      const neighbors = Array.from(delaunay.neighbors(i))
+      return {
+        index: i,
+        height: 0,
+        vertex,
+        neighbors
+      }
+    })
+
+    console.log('生成的多边形:', this.polygons)
   }
 
   // Get the next half-edge in the same triangle
@@ -87,10 +103,11 @@ export default class DualMesh {
   }
 
   r_polygon(r: number): MeshPoint[] {
-    const polygon = this._voronoi.cellPolygon(r)
+    return this.polygons[r]?.vertex || []
+  }
 
-    if (!polygon || polygon.length < 4) return []
-
-    return polygon.slice(0, -1).map(([x, y]) => ({ x, y }))
+  // Find the region closest to the given coordinates
+  find(x: number, y: number, i?: number): number {
+    return this._delaunay.find(x, y, i)
   }
 }

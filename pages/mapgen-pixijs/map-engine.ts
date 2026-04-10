@@ -1,8 +1,12 @@
 import { Application, Container } from 'pixi.js'
 import DualMesh from './generator/dual-mesh'
-import { MapRenderContext, MeshPoint } from './types'
+import { MapRenderContext } from './types'
 import { generatePoints } from './generator/point-generator'
 import { DebugRenderer } from './renderers/debug-renderer'
+import { addHeight } from './generator/height-generator'
+import { HeightmapRenderer } from './renderers/heightmap-renderer'
+
+export type OnClickCallback = (x: number, y: number) => void
 
 export default class MapEngine {
   private readonly dom: HTMLCanvasElement
@@ -16,6 +20,10 @@ export default class MapEngine {
 
   // 渲染器
   private readonly debugRenderer = new DebugRenderer()
+  private readonly heightmapRenderer = new HeightmapRenderer()
+
+  // 点击事件回调
+  private onClickCallback: OnClickCallback | null = null
 
   constructor(dom: HTMLCanvasElement) {
     this.dom = dom
@@ -36,7 +44,7 @@ export default class MapEngine {
       preference: 'webgl'
     })
 
-    const allRenderers = [this.debugRenderer]
+    const allRenderers = [this.heightmapRenderer, this.debugRenderer]
     for (const renderer of allRenderers) {
       for (const layer of renderer.layers) {
         this.world.addChild(layer)
@@ -44,9 +52,50 @@ export default class MapEngine {
     }
 
     this.app.stage.addChild(this.world)
+
+    // 添加鼠标点击事件
+    this.setupClickHandler()
   }
 
-  public setLayerVisibility(layerName: 'points' | 'edges' | 'cells', visible: boolean) {
+  private setupClickHandler() {
+    this.dom.addEventListener('click', (event: MouseEvent) => {
+      const rect = this.dom.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+
+      if (!this.mesh) return
+
+      const found = this.mesh.find(x, y)
+
+      if (found !== undefined && found !== -1) {
+        addHeight(this.mesh, found, 'island', {
+          height: 0.3,
+          radius: 0.85,
+          sharpness: 0.4
+        })
+
+        // 重新渲染
+        const ctx = this.getRenderContext()
+        if (ctx) {
+          this.heightmapRenderer.render(ctx)
+          this.debugRenderer.render(ctx)
+        }
+      }
+
+      if (this.onClickCallback) {
+        this.onClickCallback(x, y)
+      }
+    })
+  }
+
+  public setOnClick(callback: OnClickCallback) {
+    this.onClickCallback = callback
+  }
+
+  public setLayerVisibility(
+    layerName: 'points' | 'edges' | 'cells' | 'heightmap',
+    visible: boolean
+  ) {
     switch (layerName) {
       case 'points':
         this.debugRenderer.pointsLayer.visible = visible
@@ -56,6 +105,9 @@ export default class MapEngine {
         break
       case 'cells':
         this.debugRenderer.cellsLayer.visible = visible
+        break
+      case 'heightmap':
+        this.heightmapRenderer.heightmapLayer.visible = visible
         break
     }
   }
@@ -71,6 +123,7 @@ export default class MapEngine {
 
     const ctx = this.getRenderContext()
     if (ctx) {
+      this.heightmapRenderer.render(ctx)
       this.debugRenderer.render(ctx)
     }
   }

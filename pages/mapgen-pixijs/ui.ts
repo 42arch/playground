@@ -9,7 +9,7 @@ export function setupUI(mapEngine: MapEngine) {
 
   const params = {
     seed: Math.floor(Math.random() * 99999),
-    spacing: 25,
+    spacing: 8,
     showPoints: true,
     showEdges: true,
     showCells: true
@@ -46,17 +46,23 @@ export function setupUI(mapEngine: MapEngine) {
     expanded: true
   })
 
-  debugFolder.addBinding(params, 'showPoints', { label: 'Points' }).on('change', (ev) => {
-    mapEngine.setLayerVisibility('points', ev.value)
-  })
+  debugFolder
+    .addBinding(params, 'showPoints', { label: 'Points' })
+    .on('change', (ev) => {
+      mapEngine.setLayerVisibility('points', ev.value)
+    })
 
-  debugFolder.addBinding(params, 'showEdges', { label: 'Edges' }).on('change', (ev) => {
-    mapEngine.setLayerVisibility('edges', ev.value)
-  })
+  debugFolder
+    .addBinding(params, 'showEdges', { label: 'Edges' })
+    .on('change', (ev) => {
+      mapEngine.setLayerVisibility('edges', ev.value)
+    })
 
-  debugFolder.addBinding(params, 'showCells', { label: 'Cells' }).on('change', (ev) => {
-    mapEngine.setLayerVisibility('cells', ev.value)
-  })
+  debugFolder
+    .addBinding(params, 'showCells', { label: 'Cells' })
+    .on('change', (ev) => {
+      mapEngine.setLayerVisibility('cells', ev.value)
+    })
 
   pane
     .addButton({

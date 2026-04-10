@@ -5,6 +5,13 @@ export interface MeshPoint {
   y: number
 }
 
+export interface Polygon {
+  index: number
+  height: number
+  vertex: MeshPoint[]
+  neighbors: number[] // Added for common mapping requirements
+}
+
 export interface MapRenderContext {
   mesh: DualMesh
 }
