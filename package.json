@@ -33,6 +33,7 @@
     "earcut": "^3.0.1",
     "gsap": "^3.12.7",
     "ogl": "^1.0.11",
+    "pixi.js": "^8.17.1",
     "poisson-disk-sampling": "^2.3.1",
     "satellite.js": "^5.0.0",
     "simplex-noise": "^4.0.3",

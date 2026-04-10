@@ -117,6 +117,15 @@ const pages: PageInfo[] = [
     url: '/pages/15-building-explode-effect/index.html',
     tags: ['Three.js', 'Building', 'Interaction'],
     featured: true
+  },
+  {
+    name: 'Game of Life (TSL)',
+    description:
+      'Conway\'s Game of Life implemented using Three.js Shading Language (TSL) and Compute Shaders.',
+    url: '/pages/16-game-of-life-tsl/index.html',
+    tags: ['Three.js', 'WebGPU', 'TSL', 'Compute'],
+    featured: true,
+    ai: true
   }
 ]
 

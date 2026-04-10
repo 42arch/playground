@@ -1,5 +1,4 @@
 import {
-  ACESFilmicToneMapping,
   AmbientLight,
   BoxGeometry,
   BufferGeometry,
@@ -8,7 +7,6 @@ import {
   DirectionalLight,
   Group,
   Line,
-  LinearSRGBColorSpace,
   LineBasicMaterial,
   Mesh,
   MeshNormalMaterial,
