@@ -9,9 +9,19 @@ export interface Polygon {
   index: number
   height: number
   vertex: MeshPoint[]
-  neighbors: number[] // Added for common mapping requirements
+  neighbors: number[]
+  featureType?: 'Ocean' | 'Island' | 'Lake'
+  featureName?: string
+  featureNumber?: number
+}
+
+export interface CoastlineFeature {
+  type: 'Island' | 'Lake'
+  number: number
+  points: MeshPoint[]
 }
 
 export interface MapRenderContext {
   mesh: DualMesh
+  coastline?: CoastlineFeature[]
 }

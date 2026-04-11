@@ -24,29 +24,29 @@ export class HeightmapRenderer {
     const seaLevel = 0.2
 
     for (const polygon of mesh.polygons) {
-      // 参考代码逻辑：如果 height < 0.2 且未开启 seaInput，则可能不渲染或渲染背景
-      // 这里我们统一根据高度渲染颜色
-      
+      // 仅填充高度大于等于海平面的区域
+      if (polygon.height < seaLevel) continue
+
       if (polygon.vertex.length < 3) continue
 
       const color = this.getHeightColor(polygon.height)
-      
+
       this.heightmapLayer.beginPath()
       const first = polygon.vertex[0]
       this.heightmapLayer.moveTo(first.x, first.y)
-      
+
       for (let i = 1; i < polygon.vertex.length; i++) {
         const v = polygon.vertex[i]
         this.heightmapLayer.lineTo(v.x, v.y)
       }
-      
+
       this.heightmapLayer.closePath()
       this.heightmapLayer.fill({ color, alpha: 1 })
 
       // 如果高度大于水位线，增加一个描边（参考代码中的 mapStroke）
       if (polygon.height >= seaLevel) {
-          // 可选：添加描边逻辑
-          // this.heightmapLayer.stroke({ width: 0.5, color: color, alpha: 0.5 });
+        // 可选：添加描边逻辑
+        // this.heightmapLayer.stroke({ width: 0.5, color: color, alpha: 0.5 });
       }
     }
   }
@@ -58,7 +58,7 @@ export class HeightmapRenderer {
   private getHeightColor(h: number): number {
     // 限制在 0-1 之间
     const t = Math.max(0, Math.min(1, h))
-    
+
     // 我们反转一下，因为参考代码是用 color(1 - height)
     // 0.0 是红色（高山），1.0 是蓝色（深海）
     const invertedT = 1 - t

@@ -55,6 +55,10 @@ export default class DualMesh {
 
     this.t_x = new Float32Array(this.numTriangles)
     this.t_y = new Float32Array(this.numTriangles)
+    for (let t = 0; t < this.numTriangles; t++) {
+      this.t_x[t] = voronoi.circumcenters[t * 2]
+      this.t_y[t] = voronoi.circumcenters[t * 2 + 1]
+    }
 
     this.polygons = points.map((_, i) => {
       const poly = voronoi.cellPolygon(i)
@@ -67,8 +71,6 @@ export default class DualMesh {
         neighbors
       }
     })
-
-    console.log('生成的多边形:', this.polygons)
   }
 
   // Get the next half-edge in the same triangle

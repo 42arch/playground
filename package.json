@@ -11,6 +11,7 @@
   "devDependencies": {
     "@tweakpane/core": "^2.0.5",
     "@types/d3-delaunay": "^6.0.4",
+    "@types/d3-shape": "^3.1.8",
     "@types/delaunator": "^5.0.3",
     "@types/earcut": "^3.0.0",
     "@types/poisson-disk-sampling": "^2.2.4",
@@ -29,6 +30,7 @@
     "alea": "^1.0.1",
     "d3-delaunay": "^6.0.4",
     "d3-force-3d": "^3.0.5",
+    "d3-shape": "^3.2.0",
     "delaunator": "^5.0.1",
     "earcut": "^3.0.1",
     "gsap": "^3.12.7",

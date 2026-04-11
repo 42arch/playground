@@ -8,7 +8,7 @@ async function run() {
 
   const { params } = setupUI(mapEngine)
 
-  mapEngine.generateMap(params.seed, params.spacing)
+  mapEngine.generateMap(params.seed, params.spacing, params.count)
 
   // 设置点击事件处理
   mapEngine.setOnClick((x: number, y: number) => {
