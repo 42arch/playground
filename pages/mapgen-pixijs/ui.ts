@@ -8,7 +8,7 @@ export function setupUI(mapEngine: MapEngine) {
   })
 
   const params = {
-    seed: Math.floor(Math.random() * 99999),
+    seed: 7888,
     spacing: 6,
     showPoints: false,
     showEdges: false,

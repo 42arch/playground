@@ -62,16 +62,15 @@ export default class MapEngine {
 
     this.app.stage.addChild(this.world)
 
-    // 层级管理：底色模版(隐藏) -> 高程色块 -> 湖泊填充 -> 岸线描边 -> 调试点/线
     this.world.addChild(this.coastlineRenderer.islandBackLayer)
+    this.world.addChild(this.coastlineRenderer.islandMaskLayer)
     this.world.addChild(this.heightmapRenderer.heightmapLayer)
-    // this.world.addChild(this.coastlineRenderer.lakeLayer)
+    this.world.addChild(this.coastlineRenderer.lakeLayer)
+
     this.world.addChild(this.coastlineRenderer.coastlineLayer)
 
-    // 核心修复：使用平滑的底色层作为高程色块层的遮罩
-    // 这能确保生硬的多边形边缘永远不会超出平滑的海岸线
-    // this.heightmapRenderer.heightmapLayer.mask =
-    //   this.coastlineRenderer.islandBackLayer
+    this.heightmapRenderer.heightmapLayer.mask =
+      this.coastlineRenderer.islandBackLayer
 
     for (const layer of this.debugRenderer.layers) {
       this.world.addChild(layer)
@@ -143,25 +142,6 @@ export default class MapEngine {
       // 这里可以加一个简单的距离判断，暂略
 
       const localPos = this.world.toLocal(e.global)
-      // const found = this.mesh.find(localPos.x, localPos.y)
-
-      // if (found !== undefined && found !== -1) {
-      //   addHeight(this.mesh, found, 'island', {
-      //     height: this.heightmapParams.height,
-      //     radius: this.heightmapParams.radius,
-      //     sharpness: this.heightmapParams.sharpness
-      //   })
-
-      //   markFeatures(this.mesh)
-      //   this.coastline = generateCoastline(this.mesh)
-
-      //   const ctx = this.getRenderContext()
-      //   if (ctx) {
-      //     this.heightmapRenderer.render(ctx)
-      //     this.coastlineRenderer.render(ctx)
-      //     this.debugRenderer.render(ctx)
-      //   }
-      // }
 
       if (this.onClickCallback) {
         this.onClickCallback(localPos.x, localPos.y)
@@ -287,7 +267,9 @@ export default class MapEngine {
     }
     return {
       mesh: this.mesh,
-      coastline: this.coastline
+      coastline: this.coastline,
+      canvasWidth: this.width,
+      canvasHeight: this.height
     }
   }
 

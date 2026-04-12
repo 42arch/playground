@@ -24,4 +24,6 @@ export interface CoastlineFeature {
 export interface MapRenderContext {
   mesh: DualMesh
   coastline?: CoastlineFeature[]
+  canvasWidth?: number
+  canvasHeight?: number
 }

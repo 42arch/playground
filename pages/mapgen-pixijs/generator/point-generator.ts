@@ -12,6 +12,7 @@ export function generatePoints(
   height: number,
   minDistance: number = 25
 ) {
+  // console.log('Generating points with seed:', seed)
   const prng = alea(seed)
   const pds = new PoissonDiskSampling(
     {
