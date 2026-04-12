@@ -26,20 +26,23 @@ export function addHeight(
   const queue: number[] = []
   const used = new Set<number>()
 
-  // 设置起点高度
+  // 1. 初始化起点
   mesh.polygons[start].height += height
   if (mesh.polygons[start].height > 1) {
     mesh.polygons[start].height = 1
   }
+  // 重置地理特征，以便后续重新计算
+  mesh.polygons[start].featureType = undefined
 
   queue.push(start)
   used.add(start)
 
-  // BFS 扩散
+  // 2. BFS 扩散叠加
+  // 注意：参考代码中 i 和 height 是在同一作用域更新的，循环条件包含 height > 0.01
   for (let i = 0; i < queue.length && height > 0.01; i++) {
     const currIdx = queue[i]
     
-    // 衰减逻辑
+    // 衰减逻辑：'island' 模式下，衰减系数基于当前网格的高度
     if (type === 'island') {
       height = mesh.polygons[currIdx].height * radius
     } else {
@@ -49,20 +52,20 @@ export function addHeight(
     const neighbors = mesh.polygons[currIdx].neighbors
     for (const neighborIdx of neighbors) {
       if (!used.has(neighborIdx)) {
-        // 计算随机扰动
+        // 计算随机扰动系数
         let mod = Math.random() * sharpness + 1.1 - sharpness
         if (sharpness === 0) {
           mod = 1
         }
         
-        // 叠加高度
+        // 叠加高度并限高
         mesh.polygons[neighborIdx].height += height * mod
-        
-        // 阈值限制
         if (mesh.polygons[neighborIdx].height > 1) {
           mesh.polygons[neighborIdx].height = 1
         }
 
+        // 重要：重置特征，标记已使用并加入队列
+        mesh.polygons[neighborIdx].featureType = undefined
         queue.push(neighborIdx)
         used.add(neighborIdx)
       }

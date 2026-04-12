@@ -9,6 +9,7 @@ import { markFeatures } from './generator/feature-generator'
 import { generateCoastline } from './generator/coastline'
 import { CoastlineRenderer } from './renderers/coastline-renderer'
 import { CoastlineFeature } from './types'
+import { OceanRenderer } from './renderers/ocean-renderer'
 
 export type OnClickCallback = (x: number, y: number) => void
 
@@ -27,6 +28,7 @@ export default class MapEngine {
   private readonly debugRenderer = new DebugRenderer()
   private readonly heightmapRenderer = new HeightmapRenderer()
   private readonly coastlineRenderer = new CoastlineRenderer()
+  private readonly oceanRenderer = new OceanRenderer()
 
   // 高程生成参数
   private heightmapParams = {
@@ -62,6 +64,7 @@ export default class MapEngine {
 
     this.app.stage.addChild(this.world)
 
+    this.world.addChild(this.oceanRenderer.oceanLayer)
     this.world.addChild(this.coastlineRenderer.islandBackLayer)
     this.world.addChild(this.coastlineRenderer.islandMaskLayer)
     this.world.addChild(this.heightmapRenderer.heightmapLayer)
@@ -112,7 +115,6 @@ export default class MapEngine {
       'wheel',
       (e) => {
         e.preventDefault()
-        const scaleSpeed = 0.001
         const delta = -e.deltaY
         const factor = Math.pow(1.1, delta / 100)
 
@@ -254,6 +256,7 @@ export default class MapEngine {
 
       const ctx = this.getRenderContext()
       if (ctx) {
+        this.oceanRenderer.render(ctx)
         this.heightmapRenderer.render(ctx)
         this.coastlineRenderer.render(ctx)
         this.debugRenderer.render(ctx)
