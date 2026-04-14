@@ -3,13 +3,19 @@ import DualMesh from './generator/dual-mesh'
 import { MapRenderContext } from './types'
 import { generatePoints } from './generator/point-generator'
 import { DebugRenderer } from './renderers/debug-renderer'
-import { addHeight } from './generator/height-generator'
+import {
+  addBlobs,
+  addNoise,
+  downcutCoastline,
+  downcutRivers
+} from './generator/height-generator'
 import { HeightmapRenderer } from './renderers/heightmap-renderer'
 import { markFeatures } from './generator/feature-generator'
 import { generateCoastline } from './generator/coastline'
 import { CoastlineRenderer } from './renderers/coastline-renderer'
 import { CoastlineFeature } from './types'
 import { OceanRenderer } from './renderers/ocean-renderer'
+import alea from 'alea'
 
 export type OnClickCallback = (x: number, y: number) => void
 
@@ -32,9 +38,8 @@ export default class MapEngine {
 
   // 高程生成参数
   private heightmapParams = {
-    height: 0.3,
-    radius: 0.85,
-    sharpness: 0.4
+    sharpness: 0.2,
+    downcut: 0.05
   }
 
   // 点击事件回调
@@ -55,7 +60,7 @@ export default class MapEngine {
       height: this.height,
       antialias: true,
       backgroundAlpha: 1,
-      backgroundColor: '#5e4fa2',
+      backgroundColor: '#5167a9',
       preference: 'webgl'
     })
 
@@ -182,7 +187,6 @@ export default class MapEngine {
         break
       case 'coastline':
         this.coastlineRenderer.coastlineLayer.visible = visible
-        // this.coastlineRenderer.islandBackLayer.visible = visible
         break
     }
   }
@@ -190,8 +194,11 @@ export default class MapEngine {
   public generateMap(
     seed: number,
     minDistance: number = 25,
-    count: number = 1
+    count: number = 11
   ) {
+    // 统一随机数生成器
+    const random = alea(seed)
+
     const { points } = generatePoints(
       seed,
       this.width,
@@ -201,56 +208,26 @@ export default class MapEngine {
     this.mesh = new DualMesh(points, this.width, this.height)
 
     if (this.mesh) {
-      for (let c = 0; c < count; c++) {
-        let x, y
-        let type: 'island' | 'hill' = 'hill'
+      // 1. 生成基础地貌 (Blobs)
+      addBlobs(
+        this.mesh,
+        count,
+        this.width,
+        this.height,
+        random,
+        this.heightmapParams.sharpness
+      )
 
-        if (c === 0) {
-          // 第一个大岛屿居中
-          x = (Math.random() * this.width) / 4 + (this.width * 3) / 8
-          y = (Math.random() * this.height) / 4 + (this.height * 3) / 8
-          type = 'island'
-        } else {
-          // 后续的小山丘/岛屿
-          let rndIdx = -1
-          for (let limit = 0; limit < 50; limit++) {
-            const i = Math.floor(Math.random() * this.mesh.numSolidRegions)
-            const rx = this.mesh.r_x[i]
-            const ry = this.mesh.r_y[i]
+      // 2. 侵蚀海岸线 (Downcut)
+      downcutCoastline(this.mesh, this.heightmapParams.downcut)
 
-            if (
-              this.mesh.polygons[i].height <= 0.25 &&
-              rx >= this.width * 0.25 &&
-              rx <= this.width * 0.75 &&
-              ry >= this.height * 0.2 &&
-              ry <= this.height * 0.8
-            ) {
-              rndIdx = i
-              break
-            }
-          }
+      // 3. 添加噪声细化 (Noise)
+      addNoise(this.mesh, this.width, this.height, random)
 
-          // 兜底：如果没找到理想点，则随机选择一个
-          if (rndIdx === -1) {
-            rndIdx = Math.floor(Math.random() * this.mesh.numSolidRegions)
-          }
+      // 4. 水文侵蚀修剪 (Downcut Rivers) - 如果后续有 flux 数据
+      downcutRivers(this.mesh, this.heightmapParams.downcut)
 
-          x = this.mesh.r_x[rndIdx]
-          y = this.mesh.r_y[rndIdx]
-          type = 'hill'
-        }
-
-        const found = this.mesh.find(x, y)
-        if (found !== undefined && found !== -1) {
-          addHeight(this.mesh, found, type, {
-            height: this.heightmapParams.height,
-            radius: this.heightmapParams.radius,
-            sharpness: this.heightmapParams.sharpness
-          })
-        }
-      }
-
-      // 重新标记地理特征
+      // 5. 重新标记地理特征
       markFeatures(this.mesh)
       this.coastline = generateCoastline(this.mesh)
 

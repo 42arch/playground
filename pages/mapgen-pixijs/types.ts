@@ -13,6 +13,12 @@ export interface Polygon {
   featureType?: 'Ocean' | 'Island' | 'Lake'
   featureName?: string
   featureNumber?: number
+  // 地理属性
+  flux?: number
+  precipitation?: number
+  biom?: number
+  biomColor?: string
+  type?: string
 }
 
 export interface CoastlineFeature {

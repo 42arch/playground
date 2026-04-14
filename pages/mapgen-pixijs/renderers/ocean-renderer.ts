@@ -43,7 +43,7 @@ export class OceanRenderer {
     // 首先填充整个背景为最深蓝色
     this.oceanLayer.beginPath()
     this.oceanLayer.rect(0, 0, canvasWidth, canvasHeight)
-    this.oceanLayer.fill({ color: 0x5167a9 })
+    this.oceanLayer.fill({ color: '#5167a9' })
 
     const contourData = contours()
       .size([gridW, gridH])
