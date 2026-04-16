@@ -1,19 +1,13 @@
 import { Application, Container } from 'pixi.js'
 import DualMesh from './generator/dual-mesh'
-import { MapRenderContext } from './types'
-import { generatePoints } from './generator/point-generator'
+import { MapRenderContext, CoastlineFeature } from './types'
+import { generatePoints } from './generator/point'
 import { DebugRenderer } from './renderers/debug-renderer'
-import {
-  addBlobs,
-  addNoise,
-  downcutCoastline,
-  downcutRivers
-} from './generator/height-generator'
+import { addBlobs, addNoise, downcutCoastline } from './generator/elevation'
 import { HeightmapRenderer } from './renderers/heightmap-renderer'
-import { markFeatures } from './generator/feature-generator'
+import { markFeatures } from './generator/feature'
 import { generateCoastline } from './generator/coastline'
 import { CoastlineRenderer } from './renderers/coastline-renderer'
-import { CoastlineFeature } from './types'
 import { OceanRenderer } from './renderers/ocean-renderer'
 import alea from 'alea'
 
@@ -60,7 +54,7 @@ export default class MapEngine {
       height: this.height,
       antialias: true,
       backgroundAlpha: 1,
-      backgroundColor: '#5167a9',
+      backgroundColor: '#5e4fa2',
       preference: 'webgl'
     })
 
@@ -145,9 +139,6 @@ export default class MapEngine {
     this.app.stage.on('click', (e) => {
       if (!this.mesh) return
 
-      // 如果发生了明显的拖拽，则不触发点击
-      // 这里可以加一个简单的距离判断，暂略
-
       const localPos = this.world.toLocal(e.global)
 
       if (this.onClickCallback) {
@@ -208,7 +199,6 @@ export default class MapEngine {
     this.mesh = new DualMesh(points, this.width, this.height)
 
     if (this.mesh) {
-      // 1. 生成基础地貌 (Blobs)
       addBlobs(
         this.mesh,
         count,
@@ -223,11 +213,6 @@ export default class MapEngine {
 
       // 3. 添加噪声细化 (Noise)
       addNoise(this.mesh, this.width, this.height, random)
-
-      // 4. 水文侵蚀修剪 (Downcut Rivers) - 如果后续有 flux 数据
-      downcutRivers(this.mesh, this.heightmapParams.downcut)
-
-      // 5. 重新标记地理特征
       markFeatures(this.mesh)
       this.coastline = generateCoastline(this.mesh)
 

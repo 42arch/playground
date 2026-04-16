@@ -1,20 +1,73 @@
 import DualMesh from './dual-mesh'
 
 const ADJECTIVES = [
-  'Ablaze', 'Ashy', 'Beaming', 'Blazing', 'Bleached', 'Bright', 'Brilliant', 'Burnt',
-  'Chromatic', 'Classic', 'Clean', 'Colorful', 'Cool', 'Crisp', 'Dark', 'Deep',
-  'Delicate', 'Earth', 'Electric', 'Faded', 'Fiery', 'Frosty', 'Glowing', 'Hazy',
-  'Hot', 'Icy', 'Illuminated', 'Intense', 'Light', 'Loud', 'Luminous', 'Majestic',
-  'Marbled', 'Mellow', 'Mixed', 'Muddy', 'Natural', 'Neutral', 'Pale', 'Pastel',
-  'Perfect', 'Plain', 'Primary', 'Pure', 'Radiant', 'Rich', 'Royal', 'Rustic',
-  'Saturated', 'Shaded', 'Shining', 'Shiny', 'Soft', 'Solid', 'Sunny', 'Swirling',
-  'Transparent', 'Vibrant', 'Vivid', 'Warm', 'Wild'
+  'Ablaze',
+  'Ashy',
+  'Beaming',
+  'Blazing',
+  'Bleached',
+  'Bright',
+  'Brilliant',
+  'Burnt',
+  'Chromatic',
+  'Classic',
+  'Clean',
+  'Colorful',
+  'Cool',
+  'Crisp',
+  'Dark',
+  'Deep',
+  'Delicate',
+  'Earth',
+  'Electric',
+  'Faded',
+  'Fiery',
+  'Frosty',
+  'Glowing',
+  'Hazy',
+  'Hot',
+  'Icy',
+  'Illuminated',
+  'Intense',
+  'Light',
+  'Loud',
+  'Luminous',
+  'Majestic',
+  'Marbled',
+  'Mellow',
+  'Mixed',
+  'Muddy',
+  'Natural',
+  'Neutral',
+  'Pale',
+  'Pastel',
+  'Perfect',
+  'Plain',
+  'Primary',
+  'Pure',
+  'Radiant',
+  'Rich',
+  'Royal',
+  'Rustic',
+  'Saturated',
+  'Shaded',
+  'Shining',
+  'Shiny',
+  'Soft',
+  'Solid',
+  'Sunny',
+  'Swirling',
+  'Transparent',
+  'Vibrant',
+  'Vivid',
+  'Warm',
+  'Wild'
 ]
 
 /**
  * 标记地理特征（海洋、岛屿、湖泊）
  * 逻辑参照 reference/index.js 中的 markFeatures
- * 
+ *
  * @param mesh DualMesh 实例
  */
 export function markFeatures(mesh: DualMesh) {
@@ -67,7 +120,7 @@ export function markFeatures(mesh: DualMesh) {
     }
 
     const name = getRandomName()
-    
+
     // 泛洪标记该特征的所有连通多边形
     const featureQueue: number[] = [r]
     used.add(r)
@@ -79,7 +132,10 @@ export function markFeatures(mesh: DualMesh) {
       const currIdx = featureQueue.shift()!
       const neighbors = mesh.polygons[currIdx].neighbors
       for (const nextIdx of neighbors) {
-        if (!used.has(nextIdx) && heightThreshold(mesh.polygons[nextIdx].height)) {
+        if (
+          !used.has(nextIdx) &&
+          heightThreshold(mesh.polygons[nextIdx].height)
+        ) {
           mesh.polygons[nextIdx].featureType = type
           mesh.polygons[nextIdx].featureName = name
           mesh.polygons[nextIdx].featureNumber = number
